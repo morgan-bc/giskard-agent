@@ -2,7 +2,7 @@
 
 """File-access harness provider exposing CRUD/search tools backed by an ``AgentFileStore``.
 
-Unlike :class:`~agent_framework.MemoryContextProvider`, which provides
+Unlike :class:`~gikard.MemoryContextProvider`, which provides
 session-scoped memory that may be isolated per session, :class:`FileAccessProvider`
 operates on a shared, persistent storage area whose contents are visible across
 sessions and agents. The provider exposes tools — ``write_file``,
@@ -10,7 +10,7 @@ sessions and agents. The provider exposes tools — ``write_file``,
 optional tools ``ls``, ``delete_file``, and ``edit_file_lines`` (enabled via
 ``enable_extra_tools``) —
 by registering them on the per-invocation
-:class:`~agent_framework.SessionContext` in :meth:`FileAccessProvider.before_run`.
+:class:`~gikard.SessionContext` in :meth:`FileAccessProvider.before_run`.
 
 The store abstraction is generic so callers can plug in in-memory, local-disk, or
 remote-blob backends. Two backends are shipped here:
@@ -1225,7 +1225,7 @@ class FileAccessProvider(ContextProvider):
     """Context provider that gives an agent CRUD/search access to a shared file store.
 
     The provider exposes the following tools to the agent via the per-invocation
-    :class:`~agent_framework.SessionContext`:
+    :class:`~gikard.SessionContext`:
 
     Default tools (always advertised):
 
@@ -1246,7 +1246,7 @@ class FileAccessProvider(ContextProvider):
     When ``disable_write_tools`` is set, only the read-only tools (``read_file``,
     ``glob``, ``grep``, and the optional ``ls``) are advertised.
 
-    Unlike :class:`~agent_framework.MemoryContextProvider`, which provides
+    Unlike :class:`~gikard.MemoryContextProvider`, which provides
     session-scoped memory that may be isolated per session,
     :class:`FileAccessProvider` operates on a shared, persistent store whose
     contents are visible across sessions and agents. The store is passed in by
@@ -1260,8 +1260,8 @@ class FileAccessProvider(ContextProvider):
     ``function_approval_request`` items and the tool does **not** execute until
     the host supplies a matching ``function_approval_response``. Consumers that
     use the base agent directly must install
-    :class:`~agent_framework.ToolApprovalMiddleware` (or use
-    :func:`~agent_framework.create_harness_agent`, which wires it in by default)
+    :class:`~gikard.ToolApprovalMiddleware` (or use
+    :func:`~gikard.create_harness_agent`, which wires it in by default)
     to drive that handshake; otherwise these tools never run.
 
     To run unattended you can disable approval at the source with
@@ -1269,7 +1269,7 @@ class FileAccessProvider(ContextProvider):
     ``disable_write_tool_approval`` (write_file, delete_file, edit_file, edit_file_lines),
     which register the affected tools with ``approval_mode="never_require"``.
     Alternatively, keep approval on and supply one of the static auto-approval
-    rules to :class:`~agent_framework.ToolApprovalMiddleware` via its
+    rules to :class:`~gikard.ToolApprovalMiddleware` via its
     ``auto_approval_rules``:
 
     - :meth:`read_only_tools_auto_approval_rule` — auto-approves only the
@@ -1384,7 +1384,7 @@ class FileAccessProvider(ContextProvider):
         Hosted-tool calls carry a ``server_label`` in their
         ``additional_properties`` and are a separate server-scoped approval
         boundary that must be passed through untouched (see
-        :func:`agent_framework._tools._is_hosted_tool_approval`). These rules
+        :func:`gikard._tools._is_hosted_tool_approval`). These rules
         only ever auto-approve the provider's own local tools, so any call that
         carries a ``server_label`` is rejected even if its name collides with a
         file-access tool name.
@@ -1396,7 +1396,7 @@ class FileAccessProvider(ContextProvider):
         """Auto-approval rule that approves only the read-only file-access tools.
 
         The tools exposed by :class:`FileAccessProvider` always require approval.
-        Pass this rule to :class:`~agent_framework.ToolApprovalMiddleware` (via
+        Pass this rule to :class:`~gikard.ToolApprovalMiddleware` (via
         ``auto_approval_rules``) to automatically approve the tools that read
         from the store (``read_file``, ``ls``, ``glob``, and
         `grep`), while still prompting for the tools that modify it
@@ -1433,7 +1433,7 @@ class FileAccessProvider(ContextProvider):
         """Auto-approval rule that approves every file-access tool.
 
         The tools exposed by :class:`FileAccessProvider` always require approval.
-        Pass this rule to :class:`~agent_framework.ToolApprovalMiddleware` (via
+        Pass this rule to :class:`~gikard.ToolApprovalMiddleware` (via
         ``auto_approval_rules``) to automatically approve every file-access tool,
         including the tools that modify the store (``write_file``,
         ``delete_file``, ``edit_file``, and

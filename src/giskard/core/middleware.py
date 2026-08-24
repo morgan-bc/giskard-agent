@@ -120,7 +120,7 @@ class AgentContext:
     Examples:
         .. code-block:: python
 
-            from agent_framework import AgentMiddleware, AgentContext
+            from gikard import AgentMiddleware, AgentContext
 
 
             class LoggingMiddleware(AgentMiddleware):
@@ -233,7 +233,7 @@ class FunctionInvocationContext:
     Examples:
         .. code-block:: python
 
-            from agent_framework import FunctionMiddleware, FunctionInvocationContext
+            from gikard import FunctionMiddleware, FunctionInvocationContext
 
 
             class ValidationMiddleware(FunctionMiddleware):
@@ -252,7 +252,7 @@ class FunctionInvocationContext:
 
         .. code-block:: python
 
-            from agent_framework import FunctionInvocationContext, tool
+            from gikard import FunctionInvocationContext, tool
 
 
             @tool(approval_mode="never_require")
@@ -404,7 +404,7 @@ class ChatContext:
     Examples:
         .. code-block:: python
 
-            from agent_framework import ChatMiddleware, ChatContext
+            from gikard import ChatMiddleware, ChatContext
 
 
             class TokenCounterMiddleware(ChatMiddleware):
@@ -488,7 +488,7 @@ class AgentMiddleware(ABC):
     Examples:
         .. code-block:: python
 
-            from agent_framework import AgentMiddleware, AgentContext, Agent
+            from gikard import AgentMiddleware, AgentContext, Agent
 
 
             class RetryMiddleware(AgentMiddleware):
@@ -547,7 +547,7 @@ class FunctionMiddleware(ABC):
     Examples:
         .. code-block:: python
 
-            from agent_framework import FunctionMiddleware, FunctionInvocationContext, Agent
+            from gikard import FunctionMiddleware, FunctionInvocationContext, Agent
 
 
             class CachingMiddleware(FunctionMiddleware):
@@ -611,7 +611,7 @@ class ChatMiddleware(ABC):
     Examples:
         .. code-block:: python
 
-            from agent_framework import ChatMiddleware, ChatContext, Agent
+            from gikard import ChatMiddleware, ChatContext, Agent
 
 
             class SystemPromptMiddleware(ChatMiddleware):
@@ -620,7 +620,7 @@ class ChatMiddleware(ABC):
 
                 async def process(self, context: ChatContext, call_next):
                     # Add system prompt to messages
-                    from agent_framework import Message
+                    from gikard import Message
 
                     context.messages.insert(0, Message(role="system", contents=[self.system_prompt]))
 
@@ -703,7 +703,7 @@ def agent_middleware(func: AgentMiddlewareCallable) -> AgentMiddlewareCallable:
     Examples:
         .. code-block:: python
 
-            from agent_framework import agent_middleware, AgentContext, Agent
+            from gikard import agent_middleware, AgentContext, Agent
 
 
             @agent_middleware
@@ -736,7 +736,7 @@ def function_middleware(func: FunctionMiddlewareCallable) -> FunctionMiddlewareC
     Examples:
         .. code-block:: python
 
-            from agent_framework import function_middleware, FunctionInvocationContext, Agent
+            from gikard import function_middleware, FunctionInvocationContext, Agent
 
 
             @function_middleware
@@ -769,7 +769,7 @@ def chat_middleware(func: ChatMiddlewareCallable) -> ChatMiddlewareCallable:
     Examples:
         .. code-block:: python
 
-            from agent_framework import chat_middleware, ChatContext, Agent
+            from gikard import chat_middleware, ChatContext, Agent
 
 
             @chat_middleware

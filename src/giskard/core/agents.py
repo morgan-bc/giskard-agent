@@ -82,7 +82,7 @@ if TYPE_CHECKING:
     from .tools import FunctionTool, ToolTypes
     from .types import ChatOptions
 
-logger = logging.getLogger("agent_framework")
+logger = logging.getLogger("gikard")
 
 if TYPE_CHECKING:
     ResponseModelBoundT = TypeVar("ResponseModelBoundT", bound=BaseModel)
@@ -236,7 +236,7 @@ class SupportsAgentRun(Protocol):
     Examples:
         .. code-block:: python
 
-            from agent_framework import SupportsAgentRun
+            from giskard.core import SupportsAgentRun
 
 
             # Any class implementing the required methods is compatible
@@ -251,19 +251,19 @@ class SupportsAgentRun(Protocol):
                     if stream:
                         # Your custom streaming implementation
                         async def _stream():
-                            from agent_framework import AgentResponseUpdate
+                            from giskard import AgentResponseUpdate
 
                             yield AgentResponseUpdate()
 
                         return _stream()
                     else:
                         # Your custom implementation
-                        from agent_framework import AgentResponse
+                        from giskard import AgentResponse
 
                         return AgentResponse(messages=[], response_id="custom-response")
 
                 def create_session(self, *, session_id: str | None = None):
-                    from agent_framework import AgentSession
+                    from giskard import AgentSession
 
                     return AgentSession(session_id=session_id)
 
@@ -273,7 +273,7 @@ class SupportsAgentRun(Protocol):
                     *,
                     session_id: str | None = None,
                 ):
-                    from agent_framework import AgentSession
+                    from gikard import AgentSession
 
                     return AgentSession(service_session_id=service_session_id, session_id=session_id)
 
@@ -378,7 +378,7 @@ class BaseAgent(SerializationMixin):
     Examples:
         .. code-block:: python
 
-            from agent_framework import BaseAgent, AgentSession, AgentResponse
+            from gikard import BaseAgent, AgentSession, AgentResponse
 
 
             # Create a concrete subclass that implements the protocol
@@ -613,7 +613,7 @@ class BaseAgent(SerializationMixin):
         Examples:
             .. code-block:: python
 
-                from agent_framework import Agent
+                from gikard import Agent
 
                 # Create an agent
                 agent = Agent(client=client, name="research-agent", description="Performs research tasks")
@@ -722,8 +722,8 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
 
         .. code-block:: python
 
-            from agent_framework import Agent
-            from agent_framework.openai import OpenAIChatClient
+            from gikard import Agent
+            from gikard.openai import OpenAIChatClient
 
             # Create a basic chat agent
             client = OpenAIChatClient(model="gpt-4")
@@ -761,8 +761,8 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
 
         .. code-block:: python
 
-            from agent_framework import Agent
-            from agent_framework.openai import OpenAIChatClient, OpenAIChatOptions
+            from gikard import Agent
+            from gikard.openai import OpenAIChatClient, OpenAIChatOptions
 
             client = OpenAIChatClient(model="gpt-4o")
             agent: Agent[OpenAIChatOptions] = Agent(
@@ -783,7 +783,7 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
             )
     """
 
-    AGENT_PROVIDER_NAME: ClassVar[str] = "microsoft.agent_framework"
+    AGENT_PROVIDER_NAME: ClassVar[str] = "microsoft.gikard"
 
     def __init__(
         self,

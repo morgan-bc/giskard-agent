@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from .middleware import MiddlewareTypes
 
 
-logger = logging.getLogger("agent_framework")
+logger = logging.getLogger("gikard")
 
 MESSAGE_INJECTION_PENDING_MESSAGES_STATE_KEY: str = "message_injection.pending_messages"
 _MESSAGE_INJECTION_LOCK = threading.Lock()
@@ -1017,7 +1017,7 @@ class HistoryProvider(ContextProvider):
 # history only becomes durable after the run's egress verdict permits the content. When
 # no gate is active (the default), persistence runs inline exactly as before.
 _DEFERRED_RUN_PERSISTENCE: ContextVar[_RunPersistenceGate | None] = ContextVar(
-    "agent_framework_deferred_run_persistence", default=None
+    "gikard_deferred_run_persistence", default=None
 )
 
 # Identity of the agent run whose dynamic extent the current code executes in.
@@ -1025,7 +1025,7 @@ _DEFERRED_RUN_PERSISTENCE: ContextVar[_RunPersistenceGate | None] = ContextVar(
 # their own extent); agents with fully custom run loops may never stamp one, in which
 # case the identity is ``None``. The active gate compares this identity against its
 # owner so that only the gated run's own persistence defers (see ``_RunPersistenceGate``).
-_CURRENT_RUN_IDENTITY: ContextVar[object | None] = ContextVar("agent_framework_current_run_identity", default=None)
+_CURRENT_RUN_IDENTITY: ContextVar[object | None] = ContextVar("gikard_current_run_identity", default=None)
 
 # One-shot claim handshake between the middleware layer's final handler and the run it
 # starts: ``(gate_or_None, agent)``. The final handler offers the gate carried by its
@@ -1035,7 +1035,7 @@ _CURRENT_RUN_IDENTITY: ContextVar[object | None] = ContextVar("agent_framework_c
 # instance means middleware-initiated sibling runs and nested runs can never claim a
 # gate that belongs to another run.
 _PENDING_GATE_CLAIM: ContextVar[tuple[_RunPersistenceGate | None, object] | None] = ContextVar(
-    "agent_framework_pending_run_persistence_gate_claim", default=None
+    "gikard_pending_run_persistence_gate_claim", default=None
 )
 
 
@@ -1243,7 +1243,7 @@ def _suspend_run_persistence_gate() -> Generator[None]:
         _DEFERRED_RUN_PERSISTENCE.reset(token)
 
 
-LOCAL_HISTORY_CONVERSATION_ID = "agent_framework_local_history_persistence"
+LOCAL_HISTORY_CONVERSATION_ID = "gikard_local_history_persistence"
 
 
 def is_local_history_conversation_id(conversation_id: str | None) -> bool:

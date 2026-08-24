@@ -9,18 +9,18 @@ large files can carry a companion description file (suffixed with
 ``memories.md`` index file is maintained automatically and injected into the
 agent's context so the model knows what memories already exist.
 
-File access is mediated through the :class:`~agent_framework.AgentFileStore`
-abstraction (shared with :class:`~agent_framework.FileAccessProvider`), so the
+File access is mediated through the :class:`~gikard.AgentFileStore`
+abstraction (shared with :class:`~gikard.FileAccessProvider`), so the
 same in-memory, local-disk, or remote-blob backends can be reused here.
 
-Unlike :class:`~agent_framework.FileAccessProvider`, which exposes a *shared*
+Unlike :class:`~gikard.FileAccessProvider`, which exposes a *shared*
 store visible across sessions and agents, :class:`FileMemoryProvider` isolates
 memories per session by default: every session writes under its own working
 folder (derived from the session id). Pass an explicit ``scope`` to group
 memories differently, for example by user id.
 
 The provider exposes the following tools to the agent (registered on the
-per-invocation :class:`~agent_framework.SessionContext` in
+per-invocation :class:`~gikard.SessionContext` in
 :meth:`FileMemoryProvider.before_run`):
 
 * ``file_memory_write`` — Write a memory file (with an optional description).
@@ -221,7 +221,7 @@ class FileMemoryProvider(ContextProvider):
     """Context provider that gives an agent session-scoped, file-based memory.
 
     The provider exposes the following tools to the agent via the per-invocation
-    :class:`~agent_framework.SessionContext`:
+    :class:`~gikard.SessionContext`:
 
     - ``file_memory_write`` — Write a memory file with an optional description.
     - ``file_memory_read`` — Read the content of a memory file by name.

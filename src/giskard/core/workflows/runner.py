@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def warn_runner_deprecated() -> None:
     """Emit a deprecation warning when ``Runner`` is accessed from the public API.
 
-    ``Runner`` remains importable from ``agent_framework`` for backward
+    ``Runner`` remains importable from ``gikard`` for backward
     compatibility, but it is intended for internal use only and will be removed
     from the public API in a future version.
     """

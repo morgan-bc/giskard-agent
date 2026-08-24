@@ -1531,7 +1531,7 @@ class SkillsProvider(ContextProvider):
     (``load_skill``, ``read_skill_resource``, and ``run_skill_script``) is
     registered with ``approval_mode="always_require"``, so each skill operation
     needs approval.  To run unattended, pass one of the static
-    auto-approval rules to :class:`~agent_framework.ToolApprovalMiddleware` (via
+    auto-approval rules to :class:`~gikard.ToolApprovalMiddleware` (via
     ``auto_approval_rules``):
     :meth:`read_only_tools_auto_approval_rule` approves only the read-only tools
     (``load_skill`` and ``read_skill_resource``) while still prompting for
@@ -1620,7 +1620,7 @@ class SkillsProvider(ContextProvider):
         Hosted-tool calls carry a ``server_label`` in their
         ``additional_properties`` and are a separate server-scoped approval
         boundary that must be passed through untouched (see
-        :func:`agent_framework._tools._is_hosted_tool_approval`). These rules
+        :func:`gikard._tools._is_hosted_tool_approval`). These rules
         only ever auto-approve the provider's own local tools, so any call that
         carries a ``server_label`` is rejected even if its name collides with a
         skill tool name.
@@ -1635,7 +1635,7 @@ class SkillsProvider(ContextProvider):
         approval. This rule only applies to tools that still require approval;
         tools opted out via the ``disable_*_approval`` constructor arguments run
         without approval regardless.
-        Pass this rule to :class:`~agent_framework.ToolApprovalMiddleware` (via
+        Pass this rule to :class:`~gikard.ToolApprovalMiddleware` (via
         ``auto_approval_rules``) to automatically approve the tools that read
         skill content (``load_skill`` and ``read_skill_resource``), while still
         prompting for script execution (``run_skill_script``).
@@ -1673,7 +1673,7 @@ class SkillsProvider(ContextProvider):
         approval. This rule only applies to tools that still require approval;
         tools opted out via the ``disable_*_approval`` constructor arguments run
         without approval regardless.
-        Pass this rule to :class:`~agent_framework.ToolApprovalMiddleware` (via
+        Pass this rule to :class:`~gikard.ToolApprovalMiddleware` (via
         ``auto_approval_rules``) to automatically approve every skill tool,
         including the script execution tool (``run_skill_script``).
 
@@ -1782,7 +1782,7 @@ class SkillsProvider(ContextProvider):
             By default every skill tool requires approval. To approve them
             automatically, pass :meth:`read_only_tools_auto_approval_rule` or
             :meth:`all_tools_auto_approval_rule` to
-            :class:`~agent_framework.ToolApprovalMiddleware`. Alternatively, for
+            :class:`~gikard.ToolApprovalMiddleware`. Alternatively, for
             trusted skills, set one or more of
             ``disable_load_skill_approval``, ``disable_read_skill_resource_approval``,
             and ``disable_run_skill_script_approval`` to opt individual tools out
@@ -1915,7 +1915,7 @@ class SkillsProvider(ContextProvider):
             By default every skill tool requires approval. To approve them
             automatically, pass :meth:`read_only_tools_auto_approval_rule` or
             :meth:`all_tools_auto_approval_rule` to
-            :class:`~agent_framework.ToolApprovalMiddleware`. Alternatively, for
+            :class:`~gikard.ToolApprovalMiddleware`. Alternatively, for
             trusted skills, set one or more of ``disable_load_skill_approval``,
             ``disable_read_skill_resource_approval``, and
             ``disable_run_skill_script_approval`` to opt individual tools out of
@@ -2120,7 +2120,7 @@ class SkillsProvider(ContextProvider):
         ``approval_mode="always_require"`` so each skill operation needs
         approval; use :meth:`read_only_tools_auto_approval_rule` or
         :meth:`all_tools_auto_approval_rule` with
-        :class:`~agent_framework.ToolApprovalMiddleware` to approve them
+        :class:`~gikard.ToolApprovalMiddleware` to approve them
         automatically.  For trusted skills, individual tools can be opted out of
         approval entirely via the ``disable_load_skill_approval``,
         ``disable_read_skill_resource_approval``, and

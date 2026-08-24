@@ -4,25 +4,25 @@
 
 from __future__ import annotations
 
-from ._docker import (
+from .docker import (
     DEFAULT_IMAGE as DOCKER_DEFAULT_IMAGE,
 )
-from ._docker import (
+from .docker import (
     DockerNotAvailableError,
     DockerShellTool,
     is_docker_available,
 )
-from ._environment import (
+from .environment import (
     ShellEnvironmentProvider,
     ShellEnvironmentProviderOptions,
     ShellEnvironmentSnapshot,
     ShellFamily,
     default_instructions_formatter,
 )
-from ._executor_base import ShellExecutor
-from ._policy import ShellDecision, ShellPolicy, ShellRequest
-from ._tool import LocalShellTool
-from ._types import (
+from .executor_base import ShellExecutor
+from .policy import ShellDecision, ShellPolicy, ShellRequest
+from .tool import LocalShellTool
+from .types import (
     ShellCommandError,
     ShellExecutionError,
     ShellMode,

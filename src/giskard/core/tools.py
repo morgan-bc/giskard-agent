@@ -89,7 +89,7 @@ else:
     MCPTool = Any  # type: ignore[assignment,misc]
 
 
-logger = logging.getLogger("agent_framework")
+logger = logging.getLogger("gikard")
 
 
 DEFAULT_MAX_ITERATIONS: Final[int] = 40
@@ -265,7 +265,7 @@ class FunctionTool(SerializationMixin):
 
             from typing import Annotated
             from pydantic import BaseModel, Field
-            from agent_framework import FunctionTool, tool
+            from gikard import FunctionTool, tool
 
 
             # Using the decorator with string annotations
@@ -1230,7 +1230,7 @@ def tool(
 
         .. code-block:: python
 
-            from agent_framework import tool
+            from gikard import tool
             from typing import Annotated
 
 
@@ -1287,7 +1287,7 @@ def tool(
             # an executable function. The agent can request this tool, but it won't
             # be executed automatically. Useful for testing agent reasoning or when
             # the implementation is handled externally (e.g., client-side rendering).
-            from agent_framework import FunctionTool
+            from gikard import FunctionTool
 
             declaration_only_tool = FunctionTool(
                 name="get_current_time",
@@ -1362,7 +1362,7 @@ class FunctionInvocationConfiguration(TypedDict, total=False):
     Example:
         .. code-block:: python
 
-            from agent_framework.openai import OpenAIChatClient
+            from gikard.openai import OpenAIChatClient
 
             client = OpenAIChatClient(api_key="your_api_key")
 

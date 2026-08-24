@@ -2,13 +2,13 @@
 
 """AgentLoopMiddleware: re-run an agent in a loop until a criterion is met.
 
-This module provides :class:`AgentLoopMiddleware`, an :class:`~agent_framework.AgentMiddleware`
+This module provides :class:`AgentLoopMiddleware`, an :class:`~gikard.AgentMiddleware`
 that repeatedly re-invokes the wrapped agent while a ``should_continue`` predicate says to keep
 going. It serves two common patterns through a single configurable class:
 
 1. A user-supplied ``should_continue`` predicate - for example, keep looping while a response does
-   not yet contain a completion marker, while a :class:`~agent_framework.TodoProvider` still has
-   open items, or while a :class:`~agent_framework.BackgroundAgentsProvider` still has running
+   not yet contain a completion marker, while a :class:`~gikard.TodoProvider` still has
+   open items, or while a :class:`~gikard.BackgroundAgentsProvider` still has running
    tasks (see the :func:`todos_remaining` and :func:`background_tasks_running` helpers, which resolve
    their provider from the running agent). The loop
    can track a **feedback log** across iterations (``record_feedback``): each pass contributes an
@@ -220,7 +220,7 @@ class AgentLoopMiddleware(AgentMiddleware):
     the input for the next iteration. Use :meth:`with_judge` to drive the loop with a chat-client
     judge instead of a hand-written predicate.
 
-    By default a non-streaming run returns an aggregated :class:`~agent_framework.AgentResponse`
+    By default a non-streaming run returns an aggregated :class:`~gikard.AgentResponse`
     containing every iteration's messages plus the injected ``next_message`` "nudge" messages (set
     ``return_final_only=True`` to return only the last iteration's response). Streaming runs always
     yield each iteration's updates and emit the injected nudge messages as ``user`` updates between
@@ -244,8 +244,8 @@ class AgentLoopMiddleware(AgentMiddleware):
     Examples:
         .. code-block:: python
 
-            from agent_framework import Agent, AgentResponse
-            from agent_framework.harness._loop import AgentLoopMiddleware
+            from gikard import Agent, AgentResponse
+            from gikard.harness._loop import AgentLoopMiddleware
 
 
             async def should_continue(*, iteration: int, last_result: AgentResponse, **kwargs) -> bool:
@@ -316,10 +316,10 @@ class AgentLoopMiddleware(AgentMiddleware):
                 In-loop working-state mutations are discarded; pre-loop state is preserved; continuity
                 is carried only by the progress log.
             return_final_only: Controls what a non-streaming run returns. When ``False`` (default),
-                the returned :class:`~agent_framework.AgentResponse` aggregates every iteration: each
+                the returned :class:`~gikard.AgentResponse` aggregates every iteration: each
                 iteration's response messages plus the injected ``next_message`` "nudge" messages
                 (as ``user`` messages), so the caller sees the full back-and-forth. When ``True``,
-                only the final iteration's :class:`~agent_framework.AgentResponse` is returned. This
+                only the final iteration's :class:`~gikard.AgentResponse` is returned. This
                 flag has no effect on streaming runs (the stream cannot know in advance which
                 iteration is last); streaming always yields each iteration's updates and injects the
                 ``next_message`` messages as ``user`` updates between iterations.
@@ -796,7 +796,7 @@ class AgentLoopMiddleware(AgentMiddleware):
 def _running_background_tasks(session: Any, agent: Any) -> list[Any]:
     """Return the still-running ``BackgroundTaskInfo`` entries for the agent's provider.
 
-    Resolves the :class:`~agent_framework.BackgroundAgentsProvider` from the running agent
+    Resolves the :class:`~gikard.BackgroundAgentsProvider` from the running agent
     (``agent.context_providers``) and reads its persisted task state. Returns an empty list when the
     session/agent/provider is unavailable or no task is currently running.
     """
@@ -817,7 +817,7 @@ def _running_background_tasks(session: Any, agent: Any) -> list[Any]:
 def background_tasks_running() -> ShouldContinueCallable:
     """Build a ``should_continue`` predicate that loops while the agent's background tasks are busy.
 
-    This resolves the :class:`~agent_framework.BackgroundAgentsProvider` from the running agent
+    This resolves the :class:`~gikard.BackgroundAgentsProvider` from the running agent
     (``agent.context_providers``).
 
     The predicate inspects the provider's persisted task state and continues while any task is still
@@ -840,7 +840,7 @@ def background_tasks_running_message(*, session: Any = None, agent: Any = None, 
 
     Designed to pair with :func:`background_tasks_running` as a loop's ``next_message`` (e.g.
     ``create_harness_agent``'s ``loop_next_message``): between iterations it resolves the
-    :class:`~agent_framework.BackgroundAgentsProvider` from the agent, lists the still-running tasks,
+    :class:`~gikard.BackgroundAgentsProvider` from the agent, lists the still-running tasks,
     and instructs the agent to wait for them to finish (and retrieve their results) before finishing.
 
     Returns ``None`` when the session/agent/provider is unavailable or no task is running. In that
@@ -865,7 +865,7 @@ def _resolve_context_provider(agent: Any, provider_type: type) -> Any:
 
     The harness exposes its built-in context providers (``TodoProvider``, ``AgentModeProvider``,
     ...) on ``agent.context_providers``, so loop callbacks can reuse the same instances that
-    :func:`~agent_framework.create_harness_agent` wired up instead of constructing their own.
+    :func:`~gikard.create_harness_agent` wired up instead of constructing their own.
     """
     return next(
         (provider for provider in getattr(agent, "context_providers", []) if isinstance(provider, provider_type)),
@@ -876,15 +876,15 @@ def _resolve_context_provider(agent: Any, provider_type: type) -> Any:
 def todos_remaining(*, looping_modes: Sequence[str] | None = None) -> ShouldContinueCallable:
     """Build a ``should_continue`` predicate that loops while the Agent's ``TodoProvider`` has open items.
 
-    This resolves the :class:`~agent_framework.TodoProvider` from the running agent
+    This resolves the :class:`~gikard.TodoProvider` from the running agent
     (``agent.context_providers``) rather than taking it as an argument, so it can be used directly
-    with :func:`~agent_framework.create_harness_agent` (whose providers are built internally) as well
+    with :func:`~gikard.create_harness_agent` (whose providers are built internally) as well
     as with any agent that registers a ``TodoProvider`` via ``context_providers``. It is the Python
     counterpart of the .NET ``TodoCompletionLoopEvaluator``.
 
     Args:
         looping_modes: When provided, the loop only continues while the agent's current operating
-            mode (read from its :class:`~agent_framework.AgentModeProvider`) is one of these modes;
+            mode (read from its :class:`~gikard.AgentModeProvider`) is one of these modes;
             in any other mode the predicate returns ``False`` so the agent stays interactive. Mode
             matching is case-insensitive. When ``None`` (default), the loop applies in every mode. An
             empty sequence is rejected (there would be no mode in which the loop could ever run).
@@ -942,7 +942,7 @@ async def todos_remaining_message(*, session: Any = None, agent: Any = None, **k
 
     Designed to pair with :func:`todos_remaining` as a loop's ``next_message`` (e.g.
     ``create_harness_agent``'s ``loop_next_message``): between iterations it resolves the harness
-    :class:`~agent_framework.TodoProvider` from the agent, lists the still-open todo items, and
+    :class:`~gikard.TodoProvider` from the agent, lists the still-open todo items, and
     instructs the agent to complete them all before finishing.
 
     Returns ``None`` when the session/agent/provider is unavailable or no todos are open. In that

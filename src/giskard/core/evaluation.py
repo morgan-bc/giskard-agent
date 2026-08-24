@@ -12,8 +12,8 @@ Cloud evaluator example:
 
 .. code-block:: python
 
-    from agent_framework import evaluate_agent, EvalResults
-    from agent_framework.foundry import FoundryEvals
+    from gikard import evaluate_agent, EvalResults
+    from gikard.foundry import FoundryEvals
 
     evals = FoundryEvals(project_client=client, model="gpt-4o")
     results = await evaluate_agent(agent=agent, queries=["Hello"], evaluators=evals)
@@ -23,7 +23,7 @@ Local evaluator example:
 
 .. code-block:: python
 
-    from agent_framework import LocalEvaluator, keyword_check, evaluate_agent
+    from gikard import LocalEvaluator, keyword_check, evaluate_agent
 
     local = LocalEvaluator(
         keyword_check("weather", "temperature"),
@@ -1528,7 +1528,7 @@ class LocalEvaluator:
 
         .. code-block:: python
 
-            from agent_framework import LocalEvaluator, keyword_check, evaluate_agent
+            from gikard import LocalEvaluator, keyword_check, evaluate_agent
 
             local = LocalEvaluator(
                 keyword_check("weather"),
@@ -1540,7 +1540,7 @@ class LocalEvaluator:
 
         .. code-block:: python
 
-            from agent_framework.foundry import FoundryEvals
+            from gikard.foundry import FoundryEvals
 
             results = await evaluate_agent(
                 agent=agent,
@@ -1884,7 +1884,7 @@ async def evaluate_workflow(
 
     .. code-block:: python
 
-        from agent_framework.foundry import FoundryEvals
+        from gikard.foundry import FoundryEvals
 
         evals = FoundryEvals(project_client=client, model="gpt-4o")
         result = await workflow.run("Plan a trip to Paris")

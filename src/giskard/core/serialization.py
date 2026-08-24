@@ -13,7 +13,7 @@ from datetime import date, datetime
 from functools import lru_cache
 from typing import Any, ClassVar, Protocol, TypeGuard, TypeVar, cast, runtime_checkable
 
-logger = logging.getLogger("agent_framework")
+logger = logging.getLogger("gikard")
 
 ClassT = TypeVar("ClassT", bound="SerializationMixin")
 ProtocolT = TypeVar("ProtocolT", bound="SerializationProtocol")
@@ -41,8 +41,8 @@ class SerializationProtocol(Protocol):
 
         .. code-block:: python
 
-            from agent_framework import Message
-            from agent_framework._serialization import SerializationProtocol
+            from gikard import Message
+            from gikard._serialization import SerializationProtocol
 
 
             # Message implements SerializationProtocol via SerializationMixin
@@ -71,7 +71,7 @@ class SerializationProtocol(Protocol):
 
         .. code-block:: python
 
-            from agent_framework import UsageDetails
+            from gikard import UsageDetails
 
             # Create usage tracking instance
             usage = UsageDetails(input_token_count=150, output_token_count=75, total_token_count=225)
@@ -189,8 +189,8 @@ class SerializationMixin:
 
         .. code-block:: python
 
-            from agent_framework import Message
-            from agent_framework._sessions import AgentSession
+            from gikard import Message
+            from gikard._sessions import AgentSession
 
 
             # AgentSession uses SerializationMixin for state serialization
@@ -206,7 +206,7 @@ class SerializationMixin:
 
         .. code-block:: python
 
-            from agent_framework._tools import BaseTool
+            from gikard._tools import BaseTool
 
 
             class WeatherTool(BaseTool):
@@ -238,7 +238,7 @@ class SerializationMixin:
 
         .. code-block:: python
 
-            from agent_framework import BaseAgent
+            from gikard import BaseAgent
 
 
             class CustomAgent(BaseAgent):
@@ -449,7 +449,7 @@ class SerializationMixin:
 
             .. code-block:: python
 
-                from agent_framework.openai import OpenAIChatClient
+                from gikard.openai import OpenAIChatClient
                 from openai import AsyncOpenAI
 
 
@@ -475,7 +475,7 @@ class SerializationMixin:
 
             .. code-block:: python
 
-                from agent_framework import FunctionTool
+                from gikard import FunctionTool
                 from typing import Annotated
 
 
@@ -504,8 +504,8 @@ class SerializationMixin:
 
             .. code-block:: python
 
-                from agent_framework._middleware import AgentContext
-                from agent_framework import BaseAgent
+                from gikard._middleware import AgentContext
+                from gikard import BaseAgent
 
                 # AgentContext has INJECTABLE = {"agent", "result"}
                 context_data = {

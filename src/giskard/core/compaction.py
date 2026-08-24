@@ -37,7 +37,7 @@ SUMMARY_OF_GROUP_IDS_KEY = "_summary_of_group_ids"
 SUMMARIZED_BY_SUMMARY_ID_KEY = "_summarized_by_summary_id"
 
 
-logger = logging.getLogger("agent_framework")
+logger = logging.getLogger("gikard")
 
 _TOOL_CALL_CONTENT_TYPES: Final[set[str]] = {
     "function_call",
@@ -1508,8 +1508,8 @@ class CompactionProvider(ContextProvider):
     Examples:
         .. code-block:: python
 
-            from agent_framework import Agent, CompactionProvider, InMemoryHistoryProvider
-            from agent_framework.compaction import (
+            from gikard import Agent, CompactionProvider, InMemoryHistoryProvider
+            from gikard.compaction import (
                 SlidingWindowStrategy,
                 ToolResultCompactionStrategy,
             )
@@ -1635,7 +1635,7 @@ class ContextWindowCompactionStrategy:
     Examples:
         .. code-block:: python
 
-            from agent_framework import ContextWindowCompactionStrategy, CompactionProvider
+            from gikard import ContextWindowCompactionStrategy, CompactionProvider
 
             strategy = ContextWindowCompactionStrategy(
                 max_context_window_tokens=128_000,

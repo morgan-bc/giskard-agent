@@ -2,8 +2,8 @@
 
 """Shared helpers for normalizing workflow message inputs."""
 
-from agent_framework import Content, Message
-from agent_framework._types import AgentRunInputs
+from gikard import Content, Message
+from gikard._types import AgentRunInputs
 
 
 def normalize_messages_input(

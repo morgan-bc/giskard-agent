@@ -40,7 +40,7 @@ else:
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from agent_framework_tools.shell import ShellEnvironmentProviderOptions, ShellExecutor
+    from giskard.tools.shell import ShellEnvironmentProviderOptions, ShellExecutor
 
     from ..clients import SupportsChatGetResponse
     from ..compaction import CompactionStrategy, TokenizerProtocol
@@ -257,7 +257,7 @@ def _assemble_shell(
 
     # Imported lazily: the shell types live in the separate agent-framework-tools package,
     # which depends on core, so core cannot import them at module load time.
-    from agent_framework_tools.shell import ShellEnvironmentProvider
+    from giskard.tools.shell import ShellEnvironmentProvider
 
     shell_tool = client.get_shell_tool(func=as_function())
     shell_provider = ShellEnvironmentProvider(shell_executor, shell_environment_provider_options)
@@ -347,7 +347,7 @@ def create_harness_agent(
 ) -> Agent[OptionsCoT]:
     """Create a pre-configured agent with batteries included.
 
-    Assembles an :class:`~agent_framework.Agent` from a chat client, automatically wiring:
+    Assembles an :class:`~giskard.Agent` from a chat client, automatically wiring:
 
     - **Function invocation** — automatic tool calling loop
     - **Per-service-call history persistence** — persists history after every model call
@@ -378,8 +378,8 @@ def create_harness_agent(
 
         .. code-block:: python
 
-            from agent_framework import create_harness_agent
-            from agent_framework.openai import OpenAIChatClient
+            from giskard import create_harness_agent
+            from giskard.providers import OpenAIChatClient
 
             agent = create_harness_agent(
                 OpenAIChatClient(model="gpt-4o"),
@@ -467,8 +467,8 @@ def create_harness_agent(
         skills_provider: Custom SkillsProvider instance for code-defined skills.
             Can be combined with ``skills_paths`` to aggregate file and code-based skills.
             **Security:** if the provider is configured with an external skill source (e.g.
-            :class:`~agent_framework.MCPSkillsSource`), the skill content it loads is untrusted input
-            — only enable sources you trust; see :class:`~agent_framework.SkillsSource`.
+            :class:`~gikard.MCPSkillsSource`), the skill content it loads is untrusted input
+            — only enable sources you trust; see :class:`~gikard.SkillsSource`.
         skills_paths: Paths for file-based skill discovery (looks for SKILL.md files).
             Accepts a single ``str`` or :class:`~pathlib.Path`, or a sequence of
             ``str | Path``. Can be combined with ``skills_provider``. When neither
@@ -480,7 +480,7 @@ def create_harness_agent(
             Each agent must have a non-empty, unique name (case-insensitive).
             **Security:** supplied agents receive text input from this agent and their output is fed
             back into its context, so only supply agents you have vetted and trust — see
-            :class:`~agent_framework.BackgroundAgentsProvider` for the exfiltration and
+            :class:`~gikard.BackgroundAgentsProvider` for the exfiltration and
             prompt-injection risks of untrusted agents.
         background_agents_instructions: Optional instruction override for the
             ``BackgroundAgentsProvider``. May include ``{background_agents}`` placeholder
@@ -499,17 +499,17 @@ def create_harness_agent(
             client implements SupportsWebSearchTool. A warning is logged if the client
             does not support web search.
         disable_tool_auto_approval: When True, do not wire the tool auto-approval middleware.
-            When False (default), a :class:`~agent_framework.ToolApprovalMiddleware` is added
+            When False (default), a :class:`~gikard.ToolApprovalMiddleware` is added
             (outermost) to coordinate "don't ask again" standing approval rules and queued
-            approval prompts; callers must pass an :class:`~agent_framework.AgentSession` to
-            :meth:`~agent_framework.Agent.run` when enabled.
+            approval prompts; callers must pass an :class:`~gikard.AgentSession` to
+            :meth:`~gikard.Agent.run` when enabled.
         auto_approval_rules: Optional heuristic callbacks that can auto-approve a function call
             that would otherwise require approval. Each callback receives the ``function_call``
             content and returns ``True`` to approve it. Rules are evaluated after standing rules
             (derived from prior user approvals) but before prompting the user. Only used when
             ``disable_tool_auto_approval`` is False.
         loop_should_continue: Optional predicate that enables the looping middleware. When provided, the
-            agent is re-run in a loop (via :class:`~agent_framework.AgentLoopMiddleware`, wired as
+            agent is re-run in a loop (via :class:`~gikard.AgentLoopMiddleware`, wired as
             the outermost middleware so each iteration is a full agent run including tool approval)
             for as long as the predicate returns ``True``, up to ``loop_max_iterations``. If an
             iteration returns a pending tool-approval request, the loop stops and returns it so the
@@ -527,7 +527,7 @@ def create_harness_agent(
         default_options: Provider-specific chat options (temperature, max_tokens, etc.).
 
     Returns:
-        A fully configured :class:`~agent_framework.Agent` instance.
+        A fully configured :class:`~gikard.Agent` instance.
 
     Raises:
         ValueError: If max_context_window_tokens is provided and <= 0, or

@@ -176,7 +176,7 @@ class OutputDesignation:
     ``outputs`` is ``None`` in the default all-output mode (every yield is terminal). In explicit mode,
     ``outputs`` and ``intermediates`` are disjoint executor ID sets; unlisted executor
     yields are hidden from caller-facing output/intermediate events.
-    Package-internal value type owned by ``Workflow``; not exported from ``agent_framework``.
+    Package-internal value type owned by ``Workflow``; not exported from ``gikard``.
     """
 
     outputs: frozenset[str] | None = field(default=None)

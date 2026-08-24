@@ -12,13 +12,13 @@ from typing import Any, Final
 
 from . import __version__ as version_info
 
-logger = logging.getLogger("agent_framework")
+logger = logging.getLogger("gikard")
 
 
 # Note that if this environment variable does not exist, user agent telemetry is enabled.
-USER_AGENT_TELEMETRY_DISABLED_ENV_VAR = "AGENT_FRAMEWORK_USER_AGENT_DISABLED"
+USER_AGENT_TELEMETRY_DISABLED_ENV_VAR = "gikard_USER_AGENT_DISABLED"
 IS_TELEMETRY_ENABLED = os.environ.get(USER_AGENT_TELEMETRY_DISABLED_ENV_VAR, "false").lower() not in ["true", "1"]
-FEATURE_MASK_DISABLED_ENV_VAR = "AGENT_FRAMEWORK_FEATURE_MASK_DISABLED"
+FEATURE_MASK_DISABLED_ENV_VAR = "gikard_FEATURE_MASK_DISABLED"
 FEATURE_REGISTRY_VERSION = 1
 
 APP_INFO = (
@@ -30,7 +30,7 @@ APP_INFO = (
 )
 USER_AGENT_KEY: Final[str] = "User-Agent"
 HTTP_USER_AGENT: Final[str] = "agent-framework-python"
-AGENT_FRAMEWORK_USER_AGENT = f"{HTTP_USER_AGENT}/{version_info}"
+gikard_USER_AGENT = f"{HTTP_USER_AGENT}/{version_info}"
 
 
 class FeatureIndex(IntEnum):
@@ -123,8 +123,8 @@ def get_user_agent() -> str:
     """Return the full user agent string including any registered prefixes."""
     _detect_hosted_environment()
     if not _user_agent_prefixes:
-        return AGENT_FRAMEWORK_USER_AGENT
-    return f"{'/'.join(sorted(_user_agent_prefixes))}/{AGENT_FRAMEWORK_USER_AGENT}"
+        return gikard_USER_AGENT
+    return f"{'/'.join(sorted(_user_agent_prefixes))}/{gikard_USER_AGENT}"
 
 
 def _feature_mask_enabled() -> bool:
@@ -174,10 +174,10 @@ def remove_feature_token(user_agent: str) -> str:
     return _feature_comment_pattern.sub("", user_agent).strip()
 
 
-def prepend_agent_framework_to_user_agent(headers: dict[str, Any] | None = None) -> dict[str, Any]:
+def prepend_gikard_to_user_agent(headers: dict[str, Any] | None = None) -> dict[str, Any]:
     """Prepend "agent-framework" to the User-Agent in the headers.
 
-    When user agent telemetry is disabled through the ``AGENT_FRAMEWORK_USER_AGENT_DISABLED``
+    When user agent telemetry is disabled through the ``gikard_USER_AGENT_DISABLED``
     environment variable, the User-Agent header will not include the agent-framework information.
     It will be sent back as is, or as an empty dict when None is passed.
 
@@ -191,15 +191,15 @@ def prepend_agent_framework_to_user_agent(headers: dict[str, Any] | None = None)
     Examples:
         .. code-block:: python
 
-            from agent_framework import prepend_agent_framework_to_user_agent
+            from gikard import prepend_gikard_to_user_agent
 
             # Add agent-framework to new headers
-            headers = prepend_agent_framework_to_user_agent()
+            headers = prepend_gikard_to_user_agent()
             print(headers["User-Agent"])  # "agent-framework-python/0.1.0"
 
             # Prepend to existing headers
             existing = {"User-Agent": "my-app/1.0"}
-            headers = prepend_agent_framework_to_user_agent(existing)
+            headers = prepend_gikard_to_user_agent(existing)
             print(headers["User-Agent"])  # "agent-framework-python/0.1.0 my-app/1.0"
     """
     if not IS_TELEMETRY_ENABLED:

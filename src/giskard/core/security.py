@@ -136,7 +136,7 @@ class ContentLabel(SerializationMixin):
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import ContentLabel, IntegrityLabel, ConfidentialityLabel
+            from gikard.security import ContentLabel, IntegrityLabel, ConfidentialityLabel
 
             # Create a label for trusted public content
             label = ContentLabel(integrity=IntegrityLabel.TRUSTED, confidentiality=ConfidentialityLabel.PUBLIC)
@@ -226,7 +226,7 @@ def combine_labels(*labels: ContentLabel) -> ContentLabel:
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import ContentLabel, IntegrityLabel, ConfidentialityLabel, combine_labels
+            from gikard.security import ContentLabel, IntegrityLabel, ConfidentialityLabel, combine_labels
 
             label1 = ContentLabel(IntegrityLabel.TRUSTED, ConfidentialityLabel.PUBLIC)
             label2 = ContentLabel(IntegrityLabel.UNTRUSTED, ConfidentialityLabel.PRIVATE)
@@ -287,7 +287,7 @@ def check_confidentiality_allowed(
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import ContentLabel, ConfidentialityLabel, check_confidentiality_allowed
+            from gikard.security import ContentLabel, ConfidentialityLabel, check_confidentiality_allowed
 
             # PUBLIC data can be written anywhere
             public_label = ContentLabel(confidentiality=ConfidentialityLabel.PUBLIC)
@@ -329,7 +329,7 @@ class ContentVariableStore:
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import ContentVariableStore, ContentLabel, IntegrityLabel
+            from gikard.security import ContentVariableStore, ContentLabel, IntegrityLabel
 
             store = ContentVariableStore()
 
@@ -422,7 +422,7 @@ class VariableReferenceContent:
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import VariableReferenceContent, ContentLabel, IntegrityLabel
+            from gikard.security import VariableReferenceContent, ContentLabel, IntegrityLabel
 
             label = ContentLabel(integrity=IntegrityLabel.UNTRUSTED)
             ref = VariableReferenceContent(variable_id="var_abc123", label=label, description="External API response")
@@ -510,7 +510,7 @@ class LabeledMessage(Message):
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import LabeledMessage, ContentLabel, IntegrityLabel
+            from gikard.security import LabeledMessage, ContentLabel, IntegrityLabel
 
             # User message is always TRUSTED
             user_msg = LabeledMessage(
@@ -727,7 +727,7 @@ class LabelTrackingFunctionMiddleware(FunctionMiddleware):
     Examples:
         .. code-block:: python
 
-            from agent_framework import Agent, LabelTrackingFunctionMiddleware, tool
+            from gikard import Agent, LabelTrackingFunctionMiddleware, tool
 
 
             @tool(additional_properties={"source_integrity": "trusted"})
@@ -1657,9 +1657,9 @@ class PolicyEnforcementFunctionMiddleware(FunctionMiddleware):
     Examples:
         .. code-block:: python
 
-            from agent_framework import Agent
+            from gikard import Agent
 
-            from agent_framework.security import PolicyEnforcementFunctionMiddleware
+            from gikard.security import PolicyEnforcementFunctionMiddleware
 
             # Create policy enforcement middleware
             policy = PolicyEnforcementFunctionMiddleware(allow_untrusted_tools={"search_web", "get_news"})
@@ -2210,9 +2210,9 @@ class SecureAgentConfig(ContextProvider):
     Examples:
         .. code-block:: python
 
-            from agent_framework import Agent
+            from gikard import Agent
 
-            from agent_framework.security import SecureAgentConfig
+            from gikard.security import SecureAgentConfig
 
             # Create security configuration (also a context provider)
             security = SecureAgentConfig(
@@ -2409,8 +2409,8 @@ def set_quarantine_client(client: SupportsChatGetResponse | None) -> None:
     Examples:
         .. code-block:: python
 
-            from agent_framework.openai import OpenAIChatClient
-            from agent_framework.security import set_quarantine_client
+            from gikard.openai import OpenAIChatClient
+            from gikard.security import set_quarantine_client
             from azure.identity import AzureCliCredential
 
             # Create a dedicated client for quarantine operations
@@ -2938,7 +2938,7 @@ def store_untrusted_content(
     Examples:
         .. code-block:: python
 
-            from agent_framework.security import store_untrusted_content, ContentLabel, IntegrityLabel
+            from gikard.security import store_untrusted_content, ContentLabel, IntegrityLabel
 
             # Store external API response
             external_data = get_external_api_response()
@@ -2997,9 +2997,9 @@ def get_security_tools() -> list[FunctionTool]:
     Examples:
         .. code-block:: python
 
-            from agent_framework import Agent
+            from gikard import Agent
 
-            from agent_framework.security import get_security_tools
+            from gikard.security import get_security_tools
 
             agent = Agent(
                 chat_client=client,

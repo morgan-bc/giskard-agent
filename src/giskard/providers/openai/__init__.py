@@ -25,10 +25,6 @@ from .embedding_client import OpenAIEmbeddingClient, OpenAIEmbeddingOptions
 from .exceptions import ContentFilterResultSeverity, OpenAIContentFilterException
 from ._shared import OpenAISettings
 
-try:
-    __version__ = importlib.metadata.version("agent-framework-openai")
-except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.0.0"  # Fallback for development mode
 
 __all__ = [
     "ContentFilterResultSeverity",
