@@ -1,4 +1,4 @@
-"""Public API surface for Giskard core (mirrors gikard)."""
+"""Public API surface for Giskard core (mirrors giskard)."""
 
 import importlib.metadata
 from typing import Final

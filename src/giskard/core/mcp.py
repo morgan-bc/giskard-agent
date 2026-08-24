@@ -634,7 +634,7 @@ class MCPTool:
         Information Flow Control labels under the ``ifc`` key), a copy of that
         payload is stamped onto each produced :class:`Content` instance under
         ``additional_properties["_meta"]``.  Downstream layers (such as
-        :class:`gikard.security.SecureMCPToolProxy`) consume this key
+        :class:`giskard.security.SecureMCPToolProxy`) consume this key
         to derive per-item security labels.
         The sentinel is intentionally generic so any MCP server's ``_meta``
         keys (current or future) can be interpreted by higher-level code.
@@ -2711,7 +2711,7 @@ class MCPStdioTool(MCPTool):
     Examples:
         .. code-block:: python
 
-            from gikard import MCPStdioTool, Agent
+            from giskard import MCPStdioTool, Agent
 
             # Create an MCP stdio tool
             mcp_tool = MCPStdioTool(
@@ -2901,7 +2901,7 @@ class MCPStreamableHTTPTool(MCPTool):
     Examples:
         .. code-block:: python
 
-            from gikard import MCPStreamableHTTPTool, Agent
+            from giskard import MCPStreamableHTTPTool, Agent
 
             # Create an MCP HTTP tool
             mcp_tool = MCPStreamableHTTPTool(
@@ -3206,7 +3206,7 @@ class MCPWebsocketTool(MCPTool):
     Examples:
         .. code-block:: python
 
-            from gikard import MCPWebsocketTool, Agent
+            from giskard import MCPWebsocketTool, Agent
 
             # Create an MCP WebSocket tool
             mcp_tool = MCPWebsocketTool(

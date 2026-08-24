@@ -10,9 +10,8 @@ import os
 from collections.abc import Callable, Mapping, Sequence
 from typing import Literal
 
-from agent_framework import FunctionTool, tool
-from agent_framework._telemetry import mark_feature_used
-from agent_framework._tools import SHELL_TOOL_KIND_VALUE
+from giskard.core.tools import SHELL_TOOL_KIND_VALUE, FunctionTool, tool
+from giskard.core.telemetry import mark_feature_used
 
 from .feature_usage import FeatureIndex
 from .executor import run_stateless

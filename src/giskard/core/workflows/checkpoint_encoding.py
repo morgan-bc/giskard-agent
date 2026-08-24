@@ -10,7 +10,7 @@ This hybrid approach provides:
 When ``allowed_types`` is supplied to :func:`decode_checkpoint_value`, a
 ``RestrictedUnpickler`` is used that limits which classes may be instantiated
 during deserialization.  The default built-in safe set covers common Python
-value types (primitives, datetime, uuid, ...), all ``gikard`` internal
+value types (primitives, datetime, uuid, ...), all ``giskard`` internal
 types, and all ``openai.types`` types.  Callers can extend the set by passing
 additional ``"module:qualname"`` strings.
 
@@ -55,7 +55,7 @@ from typing import Any, cast
 
 from ..exceptions import WorkflowCheckpointException
 
-logger = logging.getLogger("gikard")
+logger = logging.getLogger("giskard")
 
 # Marker to identify pickled values in serialized JSON
 _PICKLE_MARKER = "__pickled__"
@@ -69,17 +69,17 @@ _RESERVED_DICT_KEYS: frozenset[str] = frozenset({
 _JSON_NATIVE_TYPES = (str, int, float, bool, type(None))
 
 # Module prefix for framework-internal types that are always allowed
-_FRAMEWORK_MODULE_PREFIX = "gikard."
+_FRAMEWORK_MODULE_PREFIX = "giskard."
 
 # Module prefix for OpenAI SDK types that are always allowed
 _OPENAI_MODULE_PREFIX = "openai.types."
 
 # Module-level helpers remain blocked even when their package prefix is otherwise auto-allowed.
 _BLOCKED_FRAMEWORK_GLOBAL_KEYS: frozenset[str] = frozenset({
-    "gikard._workflows._checkpoint_encoding:_RestrictedUnpickler",
-    "gikard._workflows._checkpoint_encoding:_base64_to_unpickle",
-    "gikard._workflows._checkpoint_encoding:decode_checkpoint_value",
-    "gikard._workflows._checkpoint_encoding:encode_checkpoint_value",
+    "giskard._workflows._checkpoint_encoding:_RestrictedUnpickler",
+    "giskard._workflows._checkpoint_encoding:_base64_to_unpickle",
+    "giskard._workflows._checkpoint_encoding:decode_checkpoint_value",
+    "giskard._workflows._checkpoint_encoding:encode_checkpoint_value",
 })
 
 # Built-in globals considered safe for checkpoint deserialization.

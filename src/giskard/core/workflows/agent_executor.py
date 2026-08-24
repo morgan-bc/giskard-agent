@@ -8,7 +8,7 @@ from typing import Any, Literal, cast
 
 from typing_extensions import Never
 
-from gikard import Content
+from giskard import Content
 
 from ..agents import SupportsAgentRun
 from ..sessions import AgentSession
@@ -82,7 +82,7 @@ class AgentExecutorResponse:
         Example:
             .. code-block:: python
 
-                from gikard import AgentExecutorResponse, WorkflowContext, executor
+                from giskard import AgentExecutorResponse, WorkflowContext, executor
 
 
                 @executor(

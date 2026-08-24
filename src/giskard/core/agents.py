@@ -82,7 +82,7 @@ if TYPE_CHECKING:
     from .tools import FunctionTool, ToolTypes
     from .types import ChatOptions
 
-logger = logging.getLogger("gikard")
+logger = logging.getLogger("giskard")
 
 if TYPE_CHECKING:
     ResponseModelBoundT = TypeVar("ResponseModelBoundT", bound=BaseModel)
@@ -273,7 +273,7 @@ class SupportsAgentRun(Protocol):
                     *,
                     session_id: str | None = None,
                 ):
-                    from gikard import AgentSession
+                    from giskard import AgentSession
 
                     return AgentSession(service_session_id=service_session_id, session_id=session_id)
 
@@ -378,7 +378,7 @@ class BaseAgent(SerializationMixin):
     Examples:
         .. code-block:: python
 
-            from gikard import BaseAgent, AgentSession, AgentResponse
+            from giskard import BaseAgent, AgentSession, AgentResponse
 
 
             # Create a concrete subclass that implements the protocol
@@ -613,7 +613,7 @@ class BaseAgent(SerializationMixin):
         Examples:
             .. code-block:: python
 
-                from gikard import Agent
+                from giskard import Agent
 
                 # Create an agent
                 agent = Agent(client=client, name="research-agent", description="Performs research tasks")
@@ -722,8 +722,8 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
 
         .. code-block:: python
 
-            from gikard import Agent
-            from gikard.openai import OpenAIChatClient
+            from giskard import Agent
+            from giskard.openai import OpenAIChatClient
 
             # Create a basic chat agent
             client = OpenAIChatClient(model="gpt-4")
@@ -761,8 +761,8 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
 
         .. code-block:: python
 
-            from gikard import Agent
-            from gikard.openai import OpenAIChatClient, OpenAIChatOptions
+            from giskard import Agent
+            from giskard.openai import OpenAIChatClient, OpenAIChatOptions
 
             client = OpenAIChatClient(model="gpt-4o")
             agent: Agent[OpenAIChatOptions] = Agent(
@@ -783,7 +783,7 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
             )
     """
 
-    AGENT_PROVIDER_NAME: ClassVar[str] = "microsoft.gikard"
+    AGENT_PROVIDER_NAME: ClassVar[str] = "microsoft.giskard"
 
     def __init__(
         self,

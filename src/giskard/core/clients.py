@@ -61,7 +61,7 @@ InputT = TypeVar("InputT", contravariant=True)
 
 BaseChatClientT = TypeVar("BaseChatClientT", bound="BaseChatClient")
 
-logger = logging.getLogger("gikard")
+logger = logging.getLogger("giskard")
 
 
 # region SupportsChatGetResponse Protocol
@@ -99,7 +99,7 @@ class SupportsChatGetResponse(Protocol[OptionsContraT]):
     Examples:
         .. code-block:: python
 
-            from gikard import SupportsChatGetResponse, ChatResponse, Message
+            from giskard import SupportsChatGetResponse, ChatResponse, Message
 
 
             # Any class implementing the required methods is compatible
@@ -108,7 +108,7 @@ class SupportsChatGetResponse(Protocol[OptionsContraT]):
 
                 def get_response(self, messages, *, stream=False, client_kwargs=None, **kwargs):
                     if stream:
-                        from gikard import ChatResponseUpdate, ResponseStream
+                        from giskard import ChatResponseUpdate, ResponseStream
 
                         async def _stream():
                             yield ChatResponseUpdate()
@@ -236,7 +236,7 @@ class BaseChatClient(SerializationMixin, ABC, Generic[OptionsCoT]):
     Examples:
         .. code-block:: python
 
-            from gikard import BaseChatClient, ChatResponse, Message
+            from giskard import BaseChatClient, ChatResponse, Message
             from collections.abc import AsyncIterable
 
 
@@ -244,7 +244,7 @@ class BaseChatClient(SerializationMixin, ABC, Generic[OptionsCoT]):
                 async def _inner_get_response(self, *, messages, stream, options, **kwargs):
                     if stream:
                         # Streaming implementation
-                        from gikard import ChatResponseUpdate
+                        from giskard import ChatResponseUpdate
 
                         async def _stream():
                             yield ChatResponseUpdate(role="assistant", contents=[{"type": "text", "text": "Hello!"}])
@@ -622,7 +622,7 @@ class BaseChatClient(SerializationMixin, ABC, Generic[OptionsCoT]):
         Examples:
             .. code-block:: python
 
-                from gikard.openai import OpenAIChatClient
+                from giskard.openai import OpenAIChatClient
 
                 # Create a client
                 client = OpenAIChatClient(model="gpt-4")
@@ -674,7 +674,7 @@ class SupportsCodeInterpreterTool(Protocol):
     Examples:
         .. code-block:: python
 
-            from gikard import Agent, SupportsCodeInterpreterTool
+            from giskard import Agent, SupportsCodeInterpreterTool
 
             if isinstance(client, SupportsCodeInterpreterTool):
                 tool = client.get_code_interpreter_tool()
@@ -704,7 +704,7 @@ class SupportsWebSearchTool(Protocol):
     Examples:
         .. code-block:: python
 
-            from gikard import Agent, SupportsWebSearchTool
+            from giskard import Agent, SupportsWebSearchTool
 
             if isinstance(client, SupportsWebSearchTool):
                 tool = client.get_web_search_tool()
@@ -734,7 +734,7 @@ class SupportsImageGenerationTool(Protocol):
     Examples:
         .. code-block:: python
 
-            from gikard import Agent, SupportsImageGenerationTool
+            from giskard import Agent, SupportsImageGenerationTool
 
             if isinstance(client, SupportsImageGenerationTool):
                 tool = client.get_image_generation_tool()
@@ -764,7 +764,7 @@ class SupportsMCPTool(Protocol):
     Examples:
         .. code-block:: python
 
-            from gikard import Agent, SupportsMCPTool
+            from giskard import Agent, SupportsMCPTool
 
             if isinstance(client, SupportsMCPTool):
                 tool = client.get_mcp_tool(name="my_mcp", url="https://...")
@@ -795,7 +795,7 @@ class SupportsFileSearchTool(Protocol):
     Examples:
         .. code-block:: python
 
-            from gikard import Agent, SupportsFileSearchTool
+            from giskard import Agent, SupportsFileSearchTool
 
             if isinstance(client, SupportsFileSearchTool):
                 tool = client.get_file_search_tool(vector_store_ids=["vs_123"])
@@ -825,8 +825,8 @@ class SupportsShellTool(Protocol):
     Examples:
         .. code-block:: python
 
-            from gikard import Agent, SupportsShellTool
-            from gikard_tools.shell import LocalShellTool
+            from giskard import Agent, SupportsShellTool
+            from giskard_tools.shell import LocalShellTool
 
 
             async def build_agent(client):
@@ -880,7 +880,7 @@ class SupportsGetEmbeddings(Protocol[EmbeddingInputContraT, EmbeddingT, Embeddin
     Examples:
         .. code-block:: python
 
-            from gikard import SupportsGetEmbeddings
+            from giskard import SupportsGetEmbeddings
 
 
             async def use_embeddings(client: SupportsGetEmbeddings) -> None:
@@ -935,7 +935,7 @@ class BaseEmbeddingClient(SerializationMixin, ABC, Generic[EmbeddingInputT, Embe
     Examples:
         .. code-block:: python
 
-            from gikard import BaseEmbeddingClient, Embedding, GeneratedEmbeddings
+            from giskard import BaseEmbeddingClient, Embedding, GeneratedEmbeddings
             from collections.abc import Sequence
 
 

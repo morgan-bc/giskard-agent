@@ -61,7 +61,7 @@ class WorkflowBuilder:
         .. code-block:: python
 
             from typing_extensions import Never
-            from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+            from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
 
 
             class UpperCaseExecutor(Executor):
@@ -201,7 +201,7 @@ class WorkflowBuilder:
             An Executor instance, wrapping the agent if necessary.
         """
         try:  # Local import to avoid hard dependency at import time
-            from gikard import SupportsAgentRun
+            from giskard import SupportsAgentRun
         except Exception:  # pragma: no cover - defensive
             SupportsAgentRun = object
 
@@ -252,7 +252,7 @@ class WorkflowBuilder:
             .. code-block:: python
 
                 from typing_extensions import Never
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
 
 
                 class ProcessorA(Executor):
@@ -299,7 +299,7 @@ class WorkflowBuilder:
         Example:
             .. code-block:: python
 
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
 
 
                 class DataSource(Executor):
@@ -363,7 +363,7 @@ class WorkflowBuilder:
         Example:
             .. code-block:: python
 
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler, Case, Default
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler, Case, Default
                 from dataclasses import dataclass
 
 
@@ -449,7 +449,7 @@ class WorkflowBuilder:
         Example:
             .. code-block:: python
 
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
                 from dataclasses import dataclass
 
 
@@ -533,7 +533,7 @@ class WorkflowBuilder:
             .. code-block:: python
 
                 from typing_extensions import Never
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
 
 
                 class Producer(Executor):
@@ -581,7 +581,7 @@ class WorkflowBuilder:
             .. code-block:: python
 
                 from typing_extensions import Never
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
 
 
                 class Step1(Executor):
@@ -745,7 +745,7 @@ class WorkflowBuilder:
             .. code-block:: python
 
                 from typing_extensions import Never
-                from gikard import Executor, WorkflowBuilder, WorkflowContext, handler
+                from giskard import Executor, WorkflowBuilder, WorkflowContext, handler
 
 
                 class MyExecutor(Executor):

@@ -147,7 +147,7 @@ def _is_internal_framework_subclass(args: tuple[Any, ...]) -> bool:
     if subclass is None:
         return False
     module = subclass.__module__
-    return module == "gikard" or module.startswith(("gikard.", "gikard_"))
+    return module == "giskard" or module.startswith(("giskard.", "giskard_"))
 
 
 def _is_protocol_class(obj: Any) -> bool:

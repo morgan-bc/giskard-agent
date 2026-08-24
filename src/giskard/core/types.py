@@ -37,7 +37,7 @@ if sys.version_info >= (3, 13):
 else:
     from typing_extensions import TypeVar  # pragma: no cover
 
-logger = logging.getLogger("gikard")
+logger = logging.getLogger("giskard")
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
@@ -107,7 +107,7 @@ def detect_media_type_from_base64(
     Examples:
         .. code-block:: python
 
-            from gikard import detect_media_type_from_base64
+            from giskard import detect_media_type_from_base64
 
             # Detect from base64 string
             base64_data = "iVBORw0KGgo..."
@@ -443,7 +443,7 @@ def add_usage_details(usage1: UsageDetails | None, usage2: UsageDetails | None) 
     Examples:
         .. code-block:: python
 
-            from gikard import UsageDetails, add_usage_details
+            from giskard import UsageDetails, add_usage_details
 
             usage1 = UsageDetails(input_token_count=5, output_token_count=10)
             usage2 = UsageDetails(input_token_count=3, output_token_count=6)
@@ -669,7 +669,7 @@ class Content:
 
                 .. code-block:: python
 
-                    from gikard import detect_media_type_from_base64, Content
+                    from giskard import detect_media_type_from_base64, Content
 
                     media_type = detect_media_type_from_base64(base64_string)
                     if media_type is None:
@@ -691,7 +691,7 @@ class Content:
         Examples:
             .. code-block:: python
 
-                from gikard import Content, detect_media_type_from_base64
+                from giskard import Content, detect_media_type_from_base64
                 import base64
 
                 # Create from raw binary data with known media type
@@ -758,7 +758,7 @@ class Content:
         Examples:
             .. code-block:: python
 
-                from gikard import Content
+                from giskard import Content
 
                 # Create from a data URI
                 content = Content.from_uri(uri="data:image/png;base64,iVBORw0KGgo...", media_type="image/png")
@@ -1595,7 +1595,7 @@ class Content:
         Examples:
             .. code-block:: python
 
-                from gikard import Content
+                from giskard import Content
 
                 image = Content.from_uri(uri="data:image/png;base64,abc123", media_type="image/png")
                 print(image.has_top_level_media_type("image"))  # True
@@ -1624,7 +1624,7 @@ class Content:
         Examples:
             .. code-block:: python
 
-                from gikard import Content
+                from giskard import Content
 
                 func_call = Content.from_function_call(
                     call_id="call_123",
@@ -1704,7 +1704,7 @@ Known values: "system", "user", "assistant", "tool"
 Examples:
     .. code-block:: python
 
-        from gikard import Message
+        from giskard import Message
 
         # Use string values directly
         user_msg = Message("user", ["Hello"])
@@ -1733,7 +1733,7 @@ Known values:
 Examples:
     .. code-block:: python
 
-        from gikard import ChatResponse
+        from giskard import ChatResponse
 
         response = ChatResponse(messages=[...], finish_reason="stop")
 
@@ -1763,7 +1763,7 @@ class Message(SerializationMixin):
     Examples:
         .. code-block:: python
 
-            from gikard import Message, Content
+            from giskard import Message, Content
 
             # Create a message with text content
             user_msg = Message("user", ["What's the weather?"])
@@ -1903,7 +1903,7 @@ def prepend_instructions_to_messages(
     Examples:
         .. code-block:: python
 
-            from gikard import prepend_instructions_to_messages, Message
+            from giskard import prepend_instructions_to_messages, Message
 
             messages = [Message("user", ["Hello"])]
             instructions = "You are a helpful assistant"
@@ -2234,7 +2234,7 @@ class ChatResponse(SerializationMixin, Generic[ResponseModelT]):
     Examples:
         .. code-block:: python
 
-            from gikard import ChatResponse, Message
+            from giskard import ChatResponse, Message
 
             # Create a response with messages
             msg = Message("assistant", ["The weather is sunny."])
@@ -2263,7 +2263,7 @@ class ChatResponse(SerializationMixin, Generic[ResponseModelT]):
     """
 
     DEFAULT_EXCLUDE: ClassVar[set[str]] = {"raw_representation", "additional_properties"}
-    _INTERNAL_CONVERSATION_ID_KEY: ClassVar[str] = "_gikard_internal_conversation_id"
+    _INTERNAL_CONVERSATION_ID_KEY: ClassVar[str] = "_giskard_internal_conversation_id"
 
     def __init__(
         self,
@@ -2379,7 +2379,7 @@ class ChatResponse(SerializationMixin, Generic[ResponseModelT]):
         Example:
             .. code-block:: python
 
-                from gikard import ChatResponse, ChatResponseUpdate
+                from giskard import ChatResponse, ChatResponseUpdate
 
                 # Create some response updates
                 updates = [
@@ -2443,7 +2443,7 @@ class ChatResponse(SerializationMixin, Generic[ResponseModelT]):
         Example:
             .. code-block:: python
 
-                from gikard import ChatResponse, ChatResponseUpdate, ChatClient
+                from giskard import ChatResponse, ChatResponseUpdate, ChatClient
 
                 client = ChatClient()  # should be a concrete implementation
                 response = await ChatResponse.from_update_generator(
@@ -2522,7 +2522,7 @@ class ChatResponseUpdate(SerializationMixin):
     Examples:
         .. code-block:: python
 
-            from gikard import ChatResponseUpdate, Content
+            from giskard import ChatResponseUpdate, Content
 
             # Create a response update with text content
             update = ChatResponseUpdate(
@@ -2640,7 +2640,7 @@ class AgentResponse(SerializationMixin, Generic[ResponseModelT]):
     Examples:
         .. code-block:: python
 
-            from gikard import AgentResponse, Message
+            from giskard import AgentResponse, Message
 
             # Create agent response
             msg = Message("assistant", ["Task completed successfully."])
@@ -2927,7 +2927,7 @@ class AgentResponseUpdate(SerializationMixin):
     Examples:
         .. code-block:: python
 
-            from gikard import AgentResponseUpdate, Content
+            from giskard import AgentResponseUpdate, Content
 
             # Create an agent run update
             update = AgentResponseUpdate(
@@ -3666,7 +3666,7 @@ class _ChatOptionsBase(TypedDict, total=False):
     Examples:
         .. code-block:: python
 
-            from gikard import ChatOptions, ToolMode
+            from giskard import ChatOptions, ToolMode
 
             # Type-safe options
             options: ChatOptions = {
@@ -3747,7 +3747,7 @@ async def validate_chat_options(options: dict[str, Any]) -> dict[str, Any]:
     Examples:
         .. code-block:: python
 
-            from gikard import validate_chat_options
+            from giskard import validate_chat_options
 
             options = await validate_chat_options({
                 "temperature": 0.7,
@@ -3803,7 +3803,7 @@ def normalize_tools(
     Examples:
         .. code-block:: python
 
-            from gikard import normalize_tools, tool
+            from giskard import normalize_tools, tool
 
 
             @tool
@@ -3839,7 +3839,7 @@ async def validate_tools(
     Examples:
         .. code-block:: python
 
-            from gikard import validate_tools, tool
+            from giskard import validate_tools, tool
 
 
             @tool
@@ -3934,7 +3934,7 @@ def merge_chat_options(
     Examples:
         .. code-block:: python
 
-            from gikard import merge_chat_options
+            from giskard import merge_chat_options
 
             base = {"temperature": 0.5, "model": "gpt-4"}
             override = {"temperature": 0.7, "max_tokens": 1000}
@@ -4013,7 +4013,7 @@ class EmbeddingGenerationOptions(TypedDict, total=False):
     Examples:
         .. code-block:: python
 
-            from gikard import EmbeddingGenerationOptions
+            from giskard import EmbeddingGenerationOptions
 
             options: EmbeddingGenerationOptions = {
                 "model": "text-embedding-3-small",
@@ -4041,7 +4041,7 @@ class Embedding(Generic[EmbeddingT]):
     Examples:
         .. code-block:: python
 
-            from gikard import Embedding
+            from giskard import Embedding
 
             embedding = Embedding(
                 vector=[0.1, 0.2, 0.3],
@@ -4102,7 +4102,7 @@ class GeneratedEmbeddings(list[Embedding[EmbeddingT]], Generic[EmbeddingT, Embed
     Examples:
         .. code-block:: python
 
-            from gikard import Embedding, GeneratedEmbeddings
+            from giskard import Embedding, GeneratedEmbeddings
 
             embeddings = GeneratedEmbeddings(
                 [Embedding(vector=[0.1, 0.2]), Embedding(vector=[0.3, 0.4])],

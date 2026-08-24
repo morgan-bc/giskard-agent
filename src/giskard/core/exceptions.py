@@ -9,7 +9,7 @@ and guidance on choosing the correct exception class.
 import logging
 from typing import Any, Literal
 
-logger = logging.getLogger("gikard")
+logger = logging.getLogger("giskard")
 
 
 class AgentFrameworkException(Exception):

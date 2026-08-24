@@ -184,7 +184,9 @@ def _assemble_context_providers(
     # ``{cwd}/agent-file-memory``; the provider isolates memories per session
     # via its default ``scope=session_id``.
     if not disable_file_memory:
-        memory_store = file_memory_store or FileSystemAgentFileStore(Path.cwd() / "agent-file-memory")
+        memory_store = file_memory_store or FileSystemAgentFileStore(
+            (Path.cwd().resolve() / "agent-file-memory").resolve()
+        )
         providers.append(FileMemoryProvider(memory_store))
 
     # Shared file access (opt-in). Only added when a store is supplied.
@@ -272,11 +274,6 @@ OptionsCoT = TypeVar(
     default="ChatOptions[None]",
 )
 
-# Dedup label for the pre-release shell tooling (provided by the alpha-stage
-# agent-framework-tools package). It is not a feature-stage-decorated feature, so it uses a
-# label distinct from ExperimentalFeature.HARNESS to avoid suppressing unrelated HARNESS warnings.
-_SHELL_TOOLING_FEATURE_ID = "SHELL_TOOLING"
-
 
 def _warn_experimental_harness_params(
     param_names: Sequence[str],
@@ -323,6 +320,7 @@ def create_harness_agent(
     mode_provider: AgentModeProvider | None = None,
     disable_file_memory: bool = False,
     file_memory_store: AgentFileStore | None = None,
+    disable_file_access: bool = False,
     file_access_store: AgentFileStore | None = None,
     file_access_disable_write_tools: bool = False,
     file_access_enable_extra_tools: bool = False,
@@ -332,6 +330,7 @@ def create_harness_agent(
     skills_paths: str | Path | Sequence[str | Path] | None = None,
     background_agents: Sequence[SupportsAgentRun] | None = None,
     background_agents_instructions: str | None = None,
+    disable_shell: bool = False,
     shell_executor: ShellExecutor | None = None,
     shell_environment_provider_options: ShellEnvironmentProviderOptions | None = None,
     disable_web_search: bool = False,
@@ -355,7 +354,12 @@ def create_harness_agent(
     - **TodoProvider** — todo list management
     - **AgentModeProvider** — plan/execute mode tracking
     - **FileMemoryProvider** — file-based session memory (on by default)
-    - **FileAccessProvider** — shared file read/write tools (opt-in via ``file_access_store``)
+    - **FileAccessProvider** — shared file read/write tools (on by default,
+      backed by a ``FileSystemAgentFileStore`` rooted at the current directory;
+      disable via ``disable_file_access`` or customize via ``file_access_store``)
+    - **Shell tool** — local shell command execution (on by default via
+      ``LocalShellTool``; disable via ``disable_shell`` or customize via
+      ``shell_executor``)
     - **SkillsProvider** — skill discovery and progressive loading
     - **BackgroundAgentsProvider** — delegate work to background sub-agents
     - **Tool approval** — "don't ask again" standing approval rules plus heuristic
@@ -368,10 +372,9 @@ def create_harness_agent(
     .. note:: Experimental features
 
         ``create_harness_agent`` is released, but a few of the features it can wire in are
-        still experimental or pre-release: **background agents** (``background_agents``),
-        **file access** (``file_access_store``), **looping** (``loop_should_continue``), and
-        the **shell tooling** (``shell_executor``, provided by the pre-release
-        ``agent-framework-tools`` package). Enabling any of them emits an ``ExperimentalWarning``.
+        still experimental: **background agents** (``background_agents``) and
+        **looping** (``loop_should_continue``). Enabling either emits an
+        ``ExperimentalWarning``.
 
     Examples:
         Basic usage:
@@ -444,10 +447,13 @@ def create_harness_agent(
         file_memory_store: Custom AgentFileStore backing the FileMemoryProvider. When None
             (and disable_file_memory is False), a FileSystemAgentFileStore rooted at
             ``{cwd}/agent-file-memory`` is created. Ignored when disable_file_memory is True.
-        file_access_store: AgentFileStore backing the FileAccessProvider. File access is
-            opt-in: when None (default), no FileAccessProvider is added and the agent has no
-            file access tools. When set, a FileAccessProvider is added, giving the agent shared
-            read/write file tools backed by the supplied store.
+        disable_file_access: When True, skip the FileAccessProvider. When False (default),
+            file access tools are enabled: when ``file_access_store`` is None, a
+            ``FileSystemAgentFileStore`` rooted at the current working directory is created.
+        file_access_store: AgentFileStore backing the FileAccessProvider. When None and
+            ``disable_file_access`` is False (default), a store rooted at the current
+            working directory is created. When set, the supplied store backs the agent's
+            shared read/write file tools.
         file_access_disable_write_tools: When True, the FileAccessProvider advertises only its
             read-only tools (read_file, glob, grep, and the optional ls); the write tools
             (write_file, delete_file, edit_file, edit_file_lines) are hidden. When False
@@ -467,8 +473,8 @@ def create_harness_agent(
         skills_provider: Custom SkillsProvider instance for code-defined skills.
             Can be combined with ``skills_paths`` to aggregate file and code-based skills.
             **Security:** if the provider is configured with an external skill source (e.g.
-            :class:`~gikard.MCPSkillsSource`), the skill content it loads is untrusted input
-            — only enable sources you trust; see :class:`~gikard.SkillsSource`.
+            :class:`~giskard.MCPSkillsSource`), the skill content it loads is untrusted input
+            — only enable sources you trust; see :class:`~giskard.SkillsSource`.
         skills_paths: Paths for file-based skill discovery (looks for SKILL.md files).
             Accepts a single ``str`` or :class:`~pathlib.Path`, or a sequence of
             ``str | Path``. Can be combined with ``skills_provider``. When neither
@@ -480,17 +486,20 @@ def create_harness_agent(
             Each agent must have a non-empty, unique name (case-insensitive).
             **Security:** supplied agents receive text input from this agent and their output is fed
             back into its context, so only supply agents you have vetted and trust — see
-            :class:`~gikard.BackgroundAgentsProvider` for the exfiltration and
+            :class:`~giskard.BackgroundAgentsProvider` for the exfiltration and
             prompt-injection risks of untrusted agents.
         background_agents_instructions: Optional instruction override for the
             ``BackgroundAgentsProvider``. May include ``{background_agents}`` placeholder
             which will be replaced with the agent listing.
-        shell_executor: Optional shell tool that enables shell command execution. When
-            provided, the shell tool and a ``ShellEnvironmentProvider`` are automatically
-            added (provided the client supports shell tools; otherwise a warning is logged
+        disable_shell: When True, skip the shell tool and ShellEnvironmentProvider. When
+            False (default), a ``LocalShellTool`` is created automatically (platform default
+            shell, persistent mode, approval required per command).
+        shell_executor: Optional shell tool overriding the default ``LocalShellTool``. When
+            provided, the shell tool and a ``ShellEnvironmentProvider`` are wired from it
+            (provided the client supports shell tools; otherwise a warning is logged
             and both are skipped). The object must expose ``as_function()`` and satisfy the
-            ``ShellExecutor`` protocol -- e.g. a ``LocalShellTool`` or ``DockerShellTool`` from
-            the ``agent-framework-tools`` package. The caller owns the executor's lifecycle.
+            ``ShellExecutor`` protocol -- e.g. a ``LocalShellTool`` or ``DockerShellTool``.
+            The caller owns the executor's lifecycle.
         shell_environment_provider_options: Optional ``ShellEnvironmentProviderOptions``
             (from ``agent-framework-tools``) used to customize the ``ShellEnvironmentProvider``
             environment probing and instructions. Only used when ``shell_executor`` is provided.
@@ -499,17 +508,17 @@ def create_harness_agent(
             client implements SupportsWebSearchTool. A warning is logged if the client
             does not support web search.
         disable_tool_auto_approval: When True, do not wire the tool auto-approval middleware.
-            When False (default), a :class:`~gikard.ToolApprovalMiddleware` is added
+            When False (default), a :class:`~giskard.ToolApprovalMiddleware` is added
             (outermost) to coordinate "don't ask again" standing approval rules and queued
-            approval prompts; callers must pass an :class:`~gikard.AgentSession` to
-            :meth:`~gikard.Agent.run` when enabled.
+            approval prompts; callers must pass an :class:`~giskard.AgentSession` to
+            :meth:`~giskard.Agent.run` when enabled.
         auto_approval_rules: Optional heuristic callbacks that can auto-approve a function call
             that would otherwise require approval. Each callback receives the ``function_call``
             content and returns ``True`` to approve it. Rules are evaluated after standing rules
             (derived from prior user approvals) but before prompting the user. Only used when
             ``disable_tool_auto_approval`` is False.
         loop_should_continue: Optional predicate that enables the looping middleware. When provided, the
-            agent is re-run in a loop (via :class:`~gikard.AgentLoopMiddleware`, wired as
+            agent is re-run in a loop (via :class:`~giskard.AgentLoopMiddleware`, wired as
             the outermost middleware so each iteration is a full agent run including tool approval)
             for as long as the predicate returns ``True``, up to ``loop_max_iterations``. If an
             iteration returns a pending tool-approval request, the loop stops and returns it so the
@@ -527,7 +536,7 @@ def create_harness_agent(
         default_options: Provider-specific chat options (temperature, max_tokens, etc.).
 
     Returns:
-        A fully configured :class:`~gikard.Agent` instance.
+        A fully configured :class:`~giskard.Agent` instance.
 
     Raises:
         ValueError: If max_context_window_tokens is provided and <= 0, or
@@ -546,13 +555,10 @@ def create_harness_agent(
         raise ValueError("max_output_tokens must be less than max_context_window_tokens.")
 
     # Warn when opting into harness features that are still experimental. create_harness_agent
-    # itself is released, but background agents, file access, and looping remain experimental,
-    # and the shell tooling is provided by the pre-release agent-framework-tools package.
+    # itself is released, but background agents and looping remain experimental.
     experimental_params: list[str] = []
     if background_agents:
         experimental_params.append("background_agents")
-    if file_access_store is not None:
-        experimental_params.append("file_access_store")
     if loop_should_continue is not None:
         experimental_params.append("loop_should_continue")
     _warn_experimental_harness_params(
@@ -560,12 +566,11 @@ def create_harness_agent(
         feature_id=ExperimentalFeature.HARNESS.value,
         detail="experimental harness features",
     )
-    if shell_executor is not None:
-        _warn_experimental_harness_params(
-            ["shell_executor"],
-            feature_id=_SHELL_TOOLING_FEATURE_ID,
-            detail="pre-release shell tooling from the agent-framework-tools package",
-        )
+
+    # File access is on by default: back it with a store rooted at the current
+    # directory unless the caller supplies one or opts out.
+    if file_access_store is None and not disable_file_access:
+        file_access_store = FileSystemAgentFileStore(Path.cwd().resolve())
 
     # Build history provider.
     resolved_history = history_provider or InMemoryHistoryProvider()
@@ -582,6 +587,15 @@ def create_harness_agent(
         after_compaction_strategy=after_compaction_strategy,
         tokenizer=tokenizer,
     )
+
+    # Shell tooling is on by default: create a LocalShellTool unless the caller
+    # supplies an executor or opts out. Imported lazily: the shell types live in
+    # giskard.tools.shell, which depends on core, so core cannot import them at
+    # module load time.
+    if shell_executor is None and not disable_shell:
+        from giskard.tools.shell import LocalShellTool
+
+        shell_executor = LocalShellTool()
 
     # Build the shell tool and environment provider (opt-in via shell_executor).
     shell_tool, shell_provider = _assemble_shell(

@@ -22,7 +22,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, ClassVar
 
-from agent_framework import AgentSession, ContextProvider, SessionContext, SupportsAgentRun
+from giskard.core.sessions import AgentSession, ContextProvider, SessionContext
+from giskard.core.agents import SupportsAgentRun
 
 from .executor_base import ShellExecutor
 from .types import ShellCommandError, ShellExecutionError, ShellResult, ShellTimeoutError

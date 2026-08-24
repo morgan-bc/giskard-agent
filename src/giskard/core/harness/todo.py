@@ -308,7 +308,7 @@ class TodoFileStore(TodoStore):
             owner_state_key: Session-state key holding the logical owner ID.
             state_filename: File name used for the persisted todo state.
         """
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path).resolve()
         self.kind = kind
         self.owner_prefix = owner_prefix
         self.owner_state_key = owner_state_key

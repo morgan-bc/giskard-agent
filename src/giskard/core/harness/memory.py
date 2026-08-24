@@ -685,7 +685,7 @@ class MemoryFileStore(MemoryStore):
             dumps: Callable used to serialize maintenance state JSON.
             loads: Callable used to deserialize maintenance state JSON.
         """
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path).resolve()
         self._base_root = self.base_path.resolve()
         self.kind = kind
         self.owner_prefix = owner_prefix
