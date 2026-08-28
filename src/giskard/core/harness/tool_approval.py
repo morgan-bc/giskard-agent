@@ -5,9 +5,7 @@ from __future__ import annotations
 import copy
 import inspect
 import json
-import os
 import re
-import shlex
 from asyncio import sleep
 from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
@@ -41,25 +39,33 @@ _COLLECTED_APPROVAL_RESPONSES_KEY = "collected_approval_responses"
 ToolApprovalScope = Literal["tool", "tool_with_arguments"]
 ToolApprovalRuleCallback = Callable[[Content], bool | Awaitable[bool]]
 
-# Tools auto-approved by the YOLO rule: read-only tools, workdir-confined write
-# tools, read-only web tools, and the shell tool (subject to the destructive
-# command check below). Deletions and any unknown tool escalate to the human.
+# Tools auto-approved by the YOLO rule without argument inspection: read-only
+# file/memory tools and read-only web tools. Per the YOLO spec, reads are
+# allowed even outside the workdir boundary (the file stores confine paths
+# lexically regardless). Deletions, write tools (path-gated below), and any
+# unknown tool do NOT live here.
 _YOLO_APPROVED_TOOLS: frozenset[str] = frozenset({
     "read_file",
     "ls",
     "glob",
     "grep",
+    "file_memory_read",
+    "file_memory_ls",
+    "file_memory_grep",
+    "web_search",
+    "web_fetch",
+})
+
+# Write-capable file tools whose ``file_name`` argument must resolve inside the
+# YOLO workdir boundary. Paths resolving outside it (or missing/unparseable
+# arguments) escalate to a human instead of being auto-approved.
+_YOLO_PATH_CONTAINED_WRITE_TOOLS: frozenset[str] = frozenset({
     "write_file",
     "edit_file",
     "edit_file_lines",
     "file_memory_write",
-    "file_memory_read",
-    "file_memory_ls",
-    "file_memory_grep",
     "file_memory_replace",
     "file_memory_replace_lines",
-    "web_search",
-    "web_fetch",
 })
 
 # Dangerous deletions always require human confirmation.
@@ -73,109 +79,6 @@ _YOLO_DESTRUCTIVE_TOKEN_RE = re.compile(r"\b(rm|rmdir|del|erase|rd|ri|remove-ite
 
 # Segment separators: command chaining and pipelines.
 _YOLO_COMMAND_SEGMENT_RE = re.compile(r"&&|;|\||\r?\n")
-
-# Shell tokens whose leading command writes/creates/modifies files. For these
-# segments every path-ish argument must resolve inside workdir, otherwise the
-# YOLO rule escalates. Reads (cat/ls/Get-Content/...) are approved anywhere,
-# and interpreters (python/node/...) stay approved (their writes cannot be
-# seen statically — documented limitation).
-_YOLO_WRITE_TOKENS: frozenset[str] = frozenset({
-    # POSIX
-    "cp", "mv", "touch", "mkdir", "md", "tee", "dd", "ln", "chmod", "chown",
-    "chgrp", "rsync", "scp", "wget", "curl", "tar", "unzip", "zip", "gzip",
-    "gunzip", "patch", "truncate", "install",
-    # cmd.exe
-    "copy", "xcopy", "robocopy", "move", "ren", "rename",
-    # PowerShell
-    "set-content", "add-content", "new-item", "out-file", "copy-item",
-    "move-item", "rename-item", "set-itemproperty", "clear-content",
-    "export-csv", "compress-archive", "expand-archive",
-})
-
-# URL schemes (https://...) are never filesystem paths.
-_YOLO_URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*://")
-
-# Output redirection (>, >>, 2>, ...) makes a segment a write.
-_YOLO_REDIRECT_RE = re.compile(r">>?")
-
-# Short Windows-style flags (rd /s, xcopy /y) — a leading slash followed by a
-# few characters and no second separator is a flag, not an absolute path.
-_YOLO_SHORT_FLAG_RE = re.compile(r"^/[A-Za-z0-9_-]{1,3}$")
-
-# In-place edit flags that turn a stream editor into a file writer.
-_YOLO_IN_PLACE_FLAGS: frozenset[str] = frozenset({"-i", "--in-place"})
-
-
-def _leading_shell_command(segment: str) -> str:
-    """Return the normalized leading command token of a segment (e.g. ``rm``).
-
-    Strips quotes, directory prefixes (``/usr/bin/``, ``C:\\...\\``) and
-    executable suffixes (``cp.exe`` -> ``cp``), lowercased for matching.
-    """
-    match = re.match(r"\s*(\S+)", segment)
-    if not match:
-        return ""
-    token = match.group(1).strip("'\"").replace("\\", "/").split("/")[-1].lower()
-    return token.split(".", 1)[0] if "." in token else token
-
-
-def _split_shell_tokens(segment: str) -> list[str]:
-    """Tokenize a segment, tolerating unbalanced quotes."""
-    try:
-        return shlex.split(segment, posix=False)
-    except ValueError:
-        return segment.split()
-
-
-def _token_outside_workdir(token: str, workdir: Path) -> bool:
-    """Return whether a shell token resolves to a path outside ``workdir``.
-
-    Relative tokens resolve against ``workdir`` (the shell tool re-anchors
-    every command there). Flags, URLs, short Windows-style flags, and bare
-    variables without a separator are not treated as paths. A variable that
-    references a separator-bearing path (``$HOME/x.log``) cannot be resolved
-    statically and is conservatively treated as outside.
-    """
-    cleaned = token.strip("'\"")
-    if not cleaned or cleaned == "-" or cleaned.startswith("-"):
-        return False
-    if _YOLO_URL_RE.match(cleaned):
-        return False
-    if _YOLO_SHORT_FLAG_RE.match(cleaned):
-        return False
-    if ("$" in cleaned or "%" in cleaned) and ("/" in cleaned or "\\" in cleaned):
-        return True
-    expanded = os.path.expanduser(cleaned) if cleaned.startswith("~") else cleaned
-    is_absolute = expanded.startswith(("/", "\\")) or bool(re.match(r"^[A-Za-z]:", expanded))
-    candidate = Path(expanded) if is_absolute else workdir / expanded
-    resolved = candidate.resolve()
-    base = os.path.normcase(str(workdir))
-    target = os.path.normcase(str(resolved))
-    return not (target == base or target.startswith(base + os.sep))
-
-
-def _is_outside_workdir_write(command: str, workdir: Path) -> bool:
-    """Return whether ``command`` writes/modifies a file outside ``workdir``.
-
-    A segment is a write when its leading command is in :data:`_YOLO_WRITE_TOKENS`
-    (``sed`` also counts with ``-i``/``--in-place``) or it contains an output
-    redirect. For write segments, any token resolving outside ``workdir``
-    escalates the whole command (conservative: sources are checked too).
-    Known limitations: interpreters and executed scripts can write anywhere,
-    ``sudo``/``xargs`` prefixes hide the real command, cmd.exe single-``&``
-    chaining is not split, and variables are only checked when they carry a
-    path separator.
-    """
-    for segment in _YOLO_COMMAND_SEGMENT_RE.split(command):
-        leading = _leading_shell_command(segment)
-        tokens = _split_shell_tokens(segment)
-        in_place = leading == "sed" and any(t.strip("'\"").lower() in _YOLO_IN_PLACE_FLAGS for t in tokens)
-        if leading not in _YOLO_WRITE_TOKENS and not in_place and not _YOLO_REDIRECT_RE.search(segment):
-            continue
-        for token in tokens:
-            if _token_outside_workdir(token, workdir):
-                return True
-    return False
 
 
 def _is_destructive_shell_command(command: str) -> bool:
@@ -195,27 +98,46 @@ def _is_destructive_shell_command(command: str) -> bool:
     return False
 
 
+def _is_within_workdir(path_argument: str, workdir: Path) -> bool:
+    """Return whether ``path_argument`` resolves inside ``workdir``.
+
+    Relative arguments are joined onto ``workdir``; absolute arguments must
+    already be inside it. Resolution follows symlinks, so an in-workdir link
+    pointing outside the boundary is rejected. The file stores also confine
+    paths lexically — this check is defense-in-depth so the YOLO rule does not
+    rely on store behavior (e.g. a caller-supplied store with weaker rules).
+    """
+    try:
+        candidate = Path(path_argument)
+        if not candidate.is_absolute():
+            candidate = workdir / candidate
+        resolved = candidate.resolve()
+        resolved.relative_to(workdir)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 def create_yolo_approval_rule(workdir: Path) -> ToolApprovalRuleCallback:
     """Create a YOLO auto-approval rule bounded by ``workdir``.
 
     Classification:
 
-    - read-only operations anywhere (read tools, web search, read-only shell
-      commands such as ``cat``/``ls``/``Get-Content``) -> auto-approve.
-    - writes/creates/modifications inside ``workdir`` (write/edit tools,
-      memory tools, shell commands whose paths all resolve inside) ->
-      auto-approve.
-    - writes outside ``workdir`` (shell write commands or redirects touching
-      any path that resolves outside) -> escalate to human confirmation.
+    - workdir reads/executes (read tools, web search, non-destructive shell
+      commands) -> auto-approve. Reads are allowed even outside the workdir
+      boundary per the YOLO spec ("non-workdir: read-only"); the file stores
+      confine paths lexically regardless.
+    - workdir writes (write/edit tools) -> auto-approve when the ``file_name``
+      argument resolves inside ``workdir``; paths resolving outside the
+      boundary, or missing/unparseable arguments, escalate to a human.
     - deletions (``delete_file``, ``file_memory_delete``, destructive shell
       commands) -> escalate to human confirmation.
     - anything else (unknown or MCP tools) -> escalate.
 
     Args:
-        workdir: The resolved working directory bounding the agent. The
-            file/memory stores already confine their tools to this root, so
-            the path check applies to the shell tool, whose free-form
-            commands can reference any location.
+        workdir: The resolved working directory that bounds the agent's file
+            tools. Write-tool ``file_name`` arguments are resolved against
+            this root (following symlinks) and must stay inside it.
 
     Returns:
         A callback suitable for :class:`ToolApprovalMiddleware`'s
@@ -231,11 +153,15 @@ def create_yolo_approval_rule(workdir: Path) -> ToolApprovalRuleCallback:
         if name == "run_shell":
             arguments = function_call.parse_arguments()
             command = arguments.get("command") if isinstance(arguments, Mapping) else None
-            if not isinstance(command, str):
-                return False
-            if _is_destructive_shell_command(command) or _is_outside_workdir_write(command, workdir):
+            if not isinstance(command, str) or _is_destructive_shell_command(command):
                 return False
             return True
+        if name in _YOLO_PATH_CONTAINED_WRITE_TOOLS:
+            arguments = function_call.parse_arguments()
+            file_name = arguments.get("file_name") if isinstance(arguments, Mapping) else None
+            if isinstance(file_name, str) and _is_within_workdir(file_name, workdir):
+                return True
+            return False
         return name in _YOLO_APPROVED_TOOLS
 
     return _yolo_rule

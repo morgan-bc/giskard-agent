@@ -111,13 +111,32 @@ approve — non-matches escalate, which matches the YOLO semantics.
 
 | Tool(s) | Decision | Rationale |
 |---|---|---|
-| `read_file`, `ls`, `glob`, `grep` | approve | read-only |
+| `read_file`, `ls`, `glob`, `grep` | approve | read-only (reads allowed outside workdir per "non-workdir: read_only"; stores confine paths lexically regardless) |
 | `web_search`, `web_fetch` | approve | read-only, no filesystem access |
-| `write_file`, `edit_file`, `edit_file_lines` | approve | store confines paths to workdir |
-| `file_memory_write` / `read` / `ls` / `grep` / `replace` / `replace_lines` | approve | memory store rooted under workdir |
+| `write_file`, `edit_file`, `edit_file_lines` | approve only if `file_name` resolves inside workdir; otherwise escalate | path-gated (defense-in-depth, symlink-following) |
+| `file_memory_read` / `ls` / `grep` | approve | read-only |
+| `file_memory_write` / `replace` / `replace_lines` | approve only if `file_name` resolves inside workdir; otherwise escalate | path-gated |
 | `delete_file`, `file_memory_delete` | escalate | dangerous deletion |
-| `run_shell` | approve unless destructive, or writes outside workdir | see below |
+| `run_shell` | approve unless destructive pattern matches | see below |
 | anything else (unknown tools, MCP tools) | escalate | "others need approval" |
+
+Shell commands are **assumed** workdir-executions and are NOT path-verified: the
+rule cannot reliably parse arbitrary shell syntax for path arguments. The default
+`LocalShellTool(workdir=...)` re-anchors each persistent command (`confine_workdir`)
+but is not hard confinement; the destructive-pattern escalation is the only
+shell-level gate.
+
+## 3a. Amendment: write-tool path containment
+
+After review, the YOLO rule additionally validates the `file_name` argument of the
+six write-capable file tools (`write_file`, `edit_file`, `edit_file_lines`,
+`file_memory_write`, `file_memory_replace`, `file_memory_replace_lines`):
+relative arguments are joined onto `workdir`, absolute arguments must already be
+inside it, resolution follows symlinks, and anything resolving outside the
+boundary — or missing/unparseable arguments — escalates to a human. Read tools
+stay blanket-approved (the spec allows non-workdir reads, and the stores reject
+absolute paths and `..` traversal lexically). This closes the gap where a
+caller-supplied store with weaker confinement would have been trusted implicitly.
 
 ### Shell destructive-command detection
 
@@ -130,31 +149,6 @@ Known limitations (documented in the docstring): `sudo rm`, `xargs rm`, shell al
 and scripts that delete internally are not caught. Approval is a UX boundary, not a
 hard security boundary — consistent with `LocalShellTool`'s documented stance that
 `confine_workdir` is a re-anchor, not confinement.
-
-### Shell workdir path validation (amendment, 2026-08-28)
-
-The original "shell commands are *treated* as workdir-confined" assumption was
-tightened: the rule now performs lexical path validation on write-shaped shell
-segments (the `workdir` argument is enforced, not merely pinned).
-
-- A segment is a **write** when its leading command (basename, `.exe` suffix
-  stripped) is in the write-command set (`cp`, `mv`, `touch`, `mkdir`, `tee`,
-  `tar`, `wget`, `curl`, `copy`, `xcopy`, `robocopy`, `Set-Content`,
-  `New-Item`, `Copy-Item`, `Move-Item`, ...), when it contains an output
-  redirect (`>`, `>>`), or when it is `sed` with `-i`/`--in-place`.
-- For write segments, every token is resolved (relative → against workdir,
-  since the shell tool re-anchors there; `~` → expanduser; `..` collapses in
-  `Path.resolve()`; comparison is `os.path.normcase` prefix — Windows-safe).
-  Any token resolving **outside** workdir → escalate. Conservative: sources
-  are checked too, and separator-bearing variables (`$HOME/x.log`,
-  `%TEMP%\b`) count as outside.
-- **Read-only shell commands are approved regardless of location**
-  (`cat /etc/hosts` → approve).
-- Known limitations: interpreters and executed scripts (`python x.py`) can
-  write anywhere and stay approved; bare variables without a separator
-  (`cp a %TEMP%`) are not treated as paths; `sudo`/`xargs` prefixes and
-  cmd.exe single-`&` chaining still bypass detection; symlink resolution is
-  not attempted.
 
 ## 4. Experimental Warning Removal
 

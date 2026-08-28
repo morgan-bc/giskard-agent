@@ -72,11 +72,11 @@ class TestYoloApprovalMatrix:
     @pytest.mark.parametrize(
         "name",
         ["read_file", "ls", "glob", "grep", "web_search", "web_fetch",
-         "write_file", "edit_file", "edit_file_lines",
-         "file_memory_write", "file_memory_read", "file_memory_ls",
-         "file_memory_grep", "file_memory_replace", "file_memory_replace_lines"],
+         "file_memory_read", "file_memory_ls", "file_memory_grep"],
     )
     def test_approved_tools(self, yolo, name):
+        # Write tools are NOT blanket-approved: their file_name arguments are
+        # path-gated against the workdir (see TestYoloPathContainment).
         assert yolo(_function_call(name)) is True
 
     @pytest.mark.parametrize(
@@ -162,91 +162,6 @@ class TestDefaultToolAssembly:
         assert "run_shell" in self._tool_names(agent)
 
 
-class TestWorkdirPathValidation:
-    """Shell writes outside workdir escalate; reads anywhere are approved."""
-
-    @pytest.fixture()
-    def scoped_yolo(self, tmp_path: Path) -> ToolApprovalRuleCallback:
-        return create_yolo_approval_rule(tmp_path.resolve())
-
-    @pytest.fixture()
-    def outside(self, tmp_path: Path) -> str:
-        # A directory guaranteed to be outside the tmp_path workdir.
-        return str(tmp_path.parent / "yolo-outside-probe")
-
-    @pytest.mark.parametrize(
-        "command",
-        [
-            # Read-only commands may touch any path.
-            "cat /etc/hosts",
-            "grep root /etc/passwd",
-            "ls C:\\Windows",
-            "Get-Content C:\\Windows\\win.ini",
-            # Writes/creates inside workdir are approved.
-            "cp a.txt b.txt",
-            "mkdir build",
-            "touch new.txt",
-            "echo hi > out.log",
-            "echo hi >> out.log",
-            "mv a b",
-            "tar -cf backup.tar .",
-            "Set-Content out.txt -Value x",
-            "Copy-Item a.txt b.txt",
-            "sed -i 's/a/b/' file.txt",
-            # Executing scripts/interpreters stays approved (documented
-            # limitation: static analysis cannot see what they write).
-            "python script.py",
-            "git status",
-        ],
-    )
-    def test_non_outside_workdir_writes_approved(self, scoped_yolo, command):
-        assert scoped_yolo(_function_call("run_shell", {"command": command})) is True
-
-    @pytest.mark.parametrize(
-        "command",
-        [
-            "touch /tmp/x",
-            "echo hi > /etc/hosts",
-            "echo x >> /var/log/app.log",
-            "mv x ~",
-            "cp a.txt ~/b",
-            "cp a.txt ..\\b",
-            "sed -i s/a/b/ /etc/fstab",
-            "wget -O /etc/w https://example.com",
-            "curl -o /etc/x https://example.com",
-            # Deletions still escalate regardless of location.
-            "rm -rf build",
-            "Remove-Item C:\\Windows\\temp.txt",
-        ],
-    )
-    def test_outside_workdir_or_destructive_writes_escalate(self, scoped_yolo, command):
-        assert scoped_yolo(_function_call("run_shell", {"command": command})) is False
-
-    def test_write_to_absolute_outside_path_escalates(self, scoped_yolo, outside):
-        assert scoped_yolo(_function_call("run_shell", {"command": f"cp a.txt {outside}\\b.txt"})) is False
-
-    def test_write_redirect_to_outside_path_escalates(self, scoped_yolo, outside):
-        assert scoped_yolo(_function_call("run_shell", {"command": f"echo x > {outside}\\o.log"})) is False
-
-    def test_set_content_outside_escalates(self, scoped_yolo, outside):
-        assert scoped_yolo(_function_call("run_shell", {"command": f"Set-Content {outside}\\f.txt -Value y"})) is False
-
-    def test_variable_path_reference_escalates_conservatively(self, scoped_yolo):
-        # $HOME/x.log references a path via an unresolvable variable that
-        # contains a separator: conservatively escalated.
-        assert scoped_yolo(_function_call("run_shell", {"command": "echo hi > $HOME/x.log"})) is False
-
-    def test_bare_variable_without_separator_is_ignored(self, scoped_yolo):
-        # A bare variable (no path separator) is not treated as a path token;
-        # the redirect target out.log is inside workdir, so this is approved.
-        assert scoped_yolo(_function_call("run_shell", {"command": "echo $PATH > out.log"})) is True
-
-    def test_workdir_relative_redirect_to_parent_escalates(self, scoped_yolo):
-        # A relative path that climbs out of workdir via .. is escalated.
-        # tmp_path workdirs are always strictly nested, so one level escapes.
-        assert scoped_yolo(_function_call("run_shell", {"command": "echo x > ..\\escape.txt"})) is False
-
-
 class TestYoloWiring:
     def test_yolo_rule_reaches_middleware(self, tmp_path: Path) -> None:
         agent = create_harness_agent(
@@ -278,3 +193,52 @@ class TestYoloWiring:
             monkeypatch.setattr("giskard.core._feature_stage._WARNED_FEATURES", set())
             # loop_should_continue previously triggered the harness experimental warning.
             create_harness_agent(MagicMock(), workdir=tmp_path, loop_should_continue=lambda response: False)
+
+
+class TestYoloPathContainment:
+    """Write-tool ``file_name`` arguments must resolve inside the YOLO workdir."""
+
+    @pytest.fixture()
+    def yolo_workdir(self, tmp_path: Path):
+        return create_yolo_approval_rule(tmp_path)
+
+    def test_write_file_relative_inside_approved(self, yolo_workdir, tmp_path: Path) -> None:
+        call = _function_call("write_file", {"file_name": "notes/a.md", "content": "x"})
+        assert yolo_workdir(call) is True
+
+    def test_write_file_absolute_inside_approved(self, yolo_workdir, tmp_path: Path) -> None:
+        call = _function_call("write_file", {"file_name": str(tmp_path / "ok.txt"), "content": "x"})
+        assert yolo_workdir(call) is True
+
+    def test_write_file_traversal_escalates(self, yolo_workdir) -> None:
+        call = _function_call("write_file", {"file_name": "../escape.txt", "content": "x"})
+        assert yolo_workdir(call) is False
+
+    def test_write_file_absolute_outside_escalates(self, yolo_workdir, tmp_path: Path) -> None:
+        outside = tmp_path.parent / "elsewhere.txt"
+        call = _function_call("write_file", {"file_name": str(outside), "content": "x"})
+        assert yolo_workdir(call) is False
+
+    def test_write_file_missing_file_name_escalates(self, yolo_workdir) -> None:
+        assert yolo_workdir(_function_call("write_file", {"content": "x"})) is False
+
+    def test_write_file_non_string_file_name_escalates(self, yolo_workdir) -> None:
+        call = _function_call("write_file", {"file_name": 123, "content": "x"})
+        assert yolo_workdir(call) is False
+
+    @pytest.mark.parametrize(
+        "name",
+        ["edit_file", "edit_file_lines", "file_memory_write", "file_memory_replace", "file_memory_replace_lines"],
+    )
+    def test_other_write_tools_traversal_escalates(self, yolo_workdir, name) -> None:
+        call = _function_call(name, {"file_name": "../escape.txt"})
+        assert yolo_workdir(call) is False
+
+    def test_write_tool_inside_subdir_approved(self, yolo_workdir) -> None:
+        call = _function_call("file_memory_write", {"file_name": "sub/dir/f.md", "content": "x"})
+        assert yolo_workdir(call) is True
+
+    def test_read_file_outside_still_approved(self, yolo_workdir) -> None:
+        # Per spec, non-workdir READS are auto-approved (the store confines
+        # paths anyway); only write tools are path-gated by the rule.
+        assert yolo_workdir(_function_call("read_file", {"file_name": "../anything.txt"})) is True
