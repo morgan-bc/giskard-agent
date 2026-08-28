@@ -13,6 +13,7 @@ from giskard.core.harness.file_memory import FileMemoryProvider
 from giskard.core.harness.tool_approval import create_yolo_approval_rule
 from giskard.core.types import Content
 from giskard.tools.shell import LocalShellTool
+from giskard.tools.web_search import ParallelSearchClient
 
 
 def _function_call(name: str, arguments: dict | None = None) -> Content:
@@ -120,3 +121,31 @@ class TestToolApprovalRuleValidation:
     def test_unknown_rule_value_raises(self) -> None:
         with pytest.raises(ValueError, match="tool_approval_rule"):
             create_harness_agent(MagicMock(), tool_approval_rule="bogus")
+
+
+class TestDefaultToolAssembly:
+    def _tool_names(self, agent) -> list[str]:
+        return [getattr(t, "name", "") for t in agent.default_options["tools"] or []]
+
+    def test_default_web_search_tools_injected_without_client_protocol(self, tmp_path: Path) -> None:
+        agent = create_harness_agent(MagicMock(), workdir=tmp_path)
+        names = self._tool_names(agent)
+        assert "web_search" in names
+        assert "web_fetch" in names
+
+    def test_disable_web_search_skips_web_tools(self, tmp_path: Path) -> None:
+        agent = create_harness_agent(MagicMock(), workdir=tmp_path, disable_web_search=True)
+        names = self._tool_names(agent)
+        assert "web_search" not in names
+        assert "web_fetch" not in names
+
+    def test_supplied_web_search_client_is_used(self, tmp_path: Path) -> None:
+        client = ParallelSearchClient()
+        agent = create_harness_agent(MagicMock(), workdir=tmp_path, web_search_client=client)
+        assert self._tool_names(agent).count("web_search") == 1
+
+    def test_shell_tool_wired_without_supports_shell_tool(self, tmp_path: Path) -> None:
+        # MagicMock does NOT implement SupportsShellTool; previously this path
+        # logged a warning and skipped the shell tool entirely.
+        agent = create_harness_agent(MagicMock(), workdir=tmp_path)
+        assert "run_shell" in self._tool_names(agent)

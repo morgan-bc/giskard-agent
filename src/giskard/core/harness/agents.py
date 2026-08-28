@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..agents import Agent, SupportsAgentRun
-from ..clients import SupportsShellTool, SupportsWebSearchTool
 from ..compaction import CompactionProvider, ContextWindowCompactionStrategy
 from .._feature_stage import ExperimentalFeature, warn_experimental_feature
 from ..sessions import ContextProvider, HistoryProvider, InMemoryHistoryProvider, MessageInjectionMiddleware
@@ -225,15 +224,17 @@ def _assemble_context_providers(
 
 
 def _assemble_shell(
-    client: SupportsChatGetResponse[Any],
     shell_executor: ShellExecutor | None,
     shell_environment_provider_options: ShellEnvironmentProviderOptions | None,
 ) -> tuple[ToolTypes | None, ContextProvider | None]:
     """Build the shell tool and environment provider when a shell executor is supplied.
 
-    Returns a ``(tool, provider)`` tuple. Both are ``None`` when no shell executor is
-    provided, or when the client does not support shell tools (a warning is logged in the
-    latter case, since the environment provider is not useful without an execution path).
+    The shell tool is wrapped from the executor's own ``as_function()`` — no
+    client support is required. The environment provider is still opt-in: it is
+    only built when a shell executor is present.
+
+    Returns a ``(tool, provider)`` tuple. Both are ``None`` when no shell
+    executor is provided.
 
     Raises:
         TypeError: If ``shell_executor`` does not expose a callable ``as_function()`` method.
@@ -242,28 +243,21 @@ def _assemble_shell(
         return None, None
 
     # ShellExecutor is a protocol without ``as_function()``, so the
-    # contract is validated at runtime: a shell tool such as LocalShellTool/DockerShellTool exposes it.
+    # contract is validated at runtime: a shell tool such as
+    # LocalShellTool/DockerShellTool exposes it.
     as_function = getattr(shell_executor, "as_function", None)
     if not callable(as_function):
         raise TypeError(
             f"shell_executor must expose a callable 'as_function()' method "
-            f"(e.g. a LocalShellTool or DockerShellTool from agent-framework-tools), "
+            f"(e.g. a LocalShellTool or DockerShellTool), "
             f"but got {type(shell_executor).__name__}."
         )
 
-    if not isinstance(client, SupportsShellTool):
-        logger.warning(
-            "Shell tool not available: client %r does not implement SupportsShellTool. "
-            "Skipping the shell tool and environment provider.",
-            type(client).__name__,
-        )
-        return None, None
-
-    # Imported lazily: the shell types live in the separate agent-framework-tools package,
+    # Imported lazily: the shell types live in giskard.tools.shell,
     # which depends on core, so core cannot import them at module load time.
     from giskard.tools.shell import ShellEnvironmentProvider
 
-    shell_tool = client.get_shell_tool(func=as_function())
+    shell_tool = as_function()
     shell_provider = ShellEnvironmentProvider(shell_executor, shell_environment_provider_options)
     return shell_tool, shell_provider
 
@@ -613,7 +607,6 @@ def create_harness_agent(
 
     # Build the shell tool and environment provider (opt-in via shell_executor).
     shell_tool, shell_provider = _assemble_shell(
-        client,
         shell_executor,
         shell_environment_provider_options,
     )
@@ -645,17 +638,17 @@ def create_harness_agent(
     # Build instructions.
     instructions = _assemble_instructions(harness_instructions, agent_instructions)
 
-    # Assemble tools, auto-adding web search if supported.
+    # Assemble tools, auto-adding web search via ParallelSearchClient.
     assembled_tools: list[ToolTypes | Callable[..., Any]] = []
     if not disable_web_search:
-        if isinstance(client, SupportsWebSearchTool):
-            assembled_tools.append(client.get_web_search_tool())
-        else:
-            logger.warning(
-                "Web search tool not available: client %r does not implement SupportsWebSearchTool. "
-                "Set disable_web_search=True to suppress this warning.",
-                type(client).__name__,
-            )
+        # Imported lazily: giskard.tools depends on core, so core cannot import
+        # it at module load time. The default client connects lazily on first
+        # invocation; a caller-supplied instance is owned (and closed) by the
+        # caller.
+        from giskard.tools.web_search.parrallel import ParallelSearchClient
+
+        search_client = web_search_client or ParallelSearchClient()
+        assembled_tools.extend(search_client.get_tools())
     if shell_tool is not None:
         assembled_tools.append(shell_tool)
     if tools is not None:
