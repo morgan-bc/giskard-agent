@@ -414,7 +414,7 @@ def create_harness_agent(
             a FileMemoryProvider is added, giving the agent session-scoped, file-based memory.
         file_memory_store: Custom AgentFileStore backing the FileMemoryProvider. When None
             (and disable_file_memory is False), a FileSystemAgentFileStore rooted at
-            ``{cwd}/agent-file-memory`` is created. Ignored when disable_file_memory is True.
+            ``{workdir}/agent-file-memory`` is created. Ignored when disable_file_memory is True.
         workdir: The working directory that roots all file I/O — the shared
             file-access store, the session file-memory store
             (``{workdir}/agent-file-memory``), the default shell tool's
@@ -427,10 +427,10 @@ def create_harness_agent(
             whereas previously it was constructed without a workdir.
         disable_file_access: When True, skip the FileAccessProvider. When False (default),
             file access tools are enabled: when ``file_access_store`` is None, a
-            ``FileSystemAgentFileStore`` rooted at the current working directory is created.
+            ``FileSystemAgentFileStore`` rooted at ``workdir`` is created.
         file_access_store: AgentFileStore backing the FileAccessProvider. When None and
-            ``disable_file_access`` is False (default), a store rooted at the current
-            working directory is created. When set, the supplied store backs the agent's
+            ``disable_file_access`` is False (default), a store rooted at
+            ``workdir`` is created. When set, the supplied store backs the agent's
             shared read/write file tools.
         file_access_disable_write_tools: When True, the FileAccessProvider advertises only its
             read-only tools (read_file, glob, grep, and the optional ls); the write tools
