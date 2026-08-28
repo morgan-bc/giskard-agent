@@ -1233,7 +1233,6 @@ class _GlobInput(BaseModel):
     ] = None
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class FileAccessProvider(ContextProvider):
     """Context provider that gives an agent CRUD/search access to a shared file store.
 
