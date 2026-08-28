@@ -489,15 +489,20 @@ def create_harness_agent(
         disable_web_search: When True, skip the web search tools. When False (default),
             ``web_search`` and ``web_fetch`` are added via ``ParallelSearchClient``.
         tool_approval_rule: Optional approval preset. ``"yolo"`` auto-approves
-            workdir reads, writes, and executions (including web search and
-            non-destructive shell commands); deletion operations
-            (``delete_file``, ``file_memory_delete``, destructive shell
-            commands such as ``rm``/``Remove-Item``) and any unknown tool
-            still require human approval. Requires
-            ``disable_tool_auto_approval=False``. Known limitation: the shell
-            check inspects each command segment's leading token only, so
-            ``sudo rm`` / ``xargs rm`` / aliases are not caught — approval is a
-            UX boundary, not a sandbox.
+            read-only operations anywhere (including web search and read-only
+            shell commands such as ``cat``/``ls``) and writes inside
+            ``workdir``; shell commands that write/modify files outside
+            ``workdir`` (via write commands such as ``cp``/``Set-Content``,
+            output redirects, or in-place edits) escalate to human approval,
+            as do deletion operations (``delete_file``,
+            ``file_memory_delete``, destructive shell commands such as
+            ``rm``/``Remove-Item``) and any unknown tool. Requires
+            ``disable_tool_auto_approval=False``. Known limitations of the
+            shell analysis (approval is a UX boundary, not a sandbox): each
+            command segment's leading token only, so ``sudo rm`` /
+            ``xargs rm`` / aliases are not caught; interpreters and executed
+            scripts (``python x.py``) can write anywhere; variables are only
+            flagged when they carry a path separator.
         disable_tool_auto_approval: When True, do not wire the tool auto-approval middleware.
             When False (default), a :class:`~giskard.ToolApprovalMiddleware` is added
             (outermost) to coordinate "don't ask again" standing approval rules and queued

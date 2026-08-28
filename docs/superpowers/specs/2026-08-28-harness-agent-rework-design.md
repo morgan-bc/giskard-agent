@@ -116,7 +116,7 @@ approve — non-matches escalate, which matches the YOLO semantics.
 | `write_file`, `edit_file`, `edit_file_lines` | approve | store confines paths to workdir |
 | `file_memory_write` / `read` / `ls` / `grep` / `replace` / `replace_lines` | approve | memory store rooted under workdir |
 | `delete_file`, `file_memory_delete` | escalate | dangerous deletion |
-| `run_shell` | approve unless destructive pattern matches | see below |
+| `run_shell` | approve unless destructive, or writes outside workdir | see below |
 | anything else (unknown tools, MCP tools) | escalate | "others need approval" |
 
 ### Shell destructive-command detection
@@ -130,6 +130,31 @@ Known limitations (documented in the docstring): `sudo rm`, `xargs rm`, shell al
 and scripts that delete internally are not caught. Approval is a UX boundary, not a
 hard security boundary — consistent with `LocalShellTool`'s documented stance that
 `confine_workdir` is a re-anchor, not confinement.
+
+### Shell workdir path validation (amendment, 2026-08-28)
+
+The original "shell commands are *treated* as workdir-confined" assumption was
+tightened: the rule now performs lexical path validation on write-shaped shell
+segments (the `workdir` argument is enforced, not merely pinned).
+
+- A segment is a **write** when its leading command (basename, `.exe` suffix
+  stripped) is in the write-command set (`cp`, `mv`, `touch`, `mkdir`, `tee`,
+  `tar`, `wget`, `curl`, `copy`, `xcopy`, `robocopy`, `Set-Content`,
+  `New-Item`, `Copy-Item`, `Move-Item`, ...), when it contains an output
+  redirect (`>`, `>>`), or when it is `sed` with `-i`/`--in-place`.
+- For write segments, every token is resolved (relative → against workdir,
+  since the shell tool re-anchors there; `~` → expanduser; `..` collapses in
+  `Path.resolve()`; comparison is `os.path.normcase` prefix — Windows-safe).
+  Any token resolving **outside** workdir → escalate. Conservative: sources
+  are checked too, and separator-bearing variables (`$HOME/x.log`,
+  `%TEMP%\b`) count as outside.
+- **Read-only shell commands are approved regardless of location**
+  (`cat /etc/hosts` → approve).
+- Known limitations: interpreters and executed scripts (`python x.py`) can
+  write anywhere and stay approved; bare variables without a separator
+  (`cp a %TEMP%`) are not treated as paths; `sudo`/`xargs` prefixes and
+  cmd.exe single-`&` chaining still bypass detection; symlink resolution is
+  not attempted.
 
 ## 4. Experimental Warning Removal
 

@@ -162,6 +162,91 @@ class TestDefaultToolAssembly:
         assert "run_shell" in self._tool_names(agent)
 
 
+class TestWorkdirPathValidation:
+    """Shell writes outside workdir escalate; reads anywhere are approved."""
+
+    @pytest.fixture()
+    def scoped_yolo(self, tmp_path: Path) -> ToolApprovalRuleCallback:
+        return create_yolo_approval_rule(tmp_path.resolve())
+
+    @pytest.fixture()
+    def outside(self, tmp_path: Path) -> str:
+        # A directory guaranteed to be outside the tmp_path workdir.
+        return str(tmp_path.parent / "yolo-outside-probe")
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            # Read-only commands may touch any path.
+            "cat /etc/hosts",
+            "grep root /etc/passwd",
+            "ls C:\\Windows",
+            "Get-Content C:\\Windows\\win.ini",
+            # Writes/creates inside workdir are approved.
+            "cp a.txt b.txt",
+            "mkdir build",
+            "touch new.txt",
+            "echo hi > out.log",
+            "echo hi >> out.log",
+            "mv a b",
+            "tar -cf backup.tar .",
+            "Set-Content out.txt -Value x",
+            "Copy-Item a.txt b.txt",
+            "sed -i 's/a/b/' file.txt",
+            # Executing scripts/interpreters stays approved (documented
+            # limitation: static analysis cannot see what they write).
+            "python script.py",
+            "git status",
+        ],
+    )
+    def test_non_outside_workdir_writes_approved(self, scoped_yolo, command):
+        assert scoped_yolo(_function_call("run_shell", {"command": command})) is True
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "touch /tmp/x",
+            "echo hi > /etc/hosts",
+            "echo x >> /var/log/app.log",
+            "mv x ~",
+            "cp a.txt ~/b",
+            "cp a.txt ..\\b",
+            "sed -i s/a/b/ /etc/fstab",
+            "wget -O /etc/w https://example.com",
+            "curl -o /etc/x https://example.com",
+            # Deletions still escalate regardless of location.
+            "rm -rf build",
+            "Remove-Item C:\\Windows\\temp.txt",
+        ],
+    )
+    def test_outside_workdir_or_destructive_writes_escalate(self, scoped_yolo, command):
+        assert scoped_yolo(_function_call("run_shell", {"command": command})) is False
+
+    def test_write_to_absolute_outside_path_escalates(self, scoped_yolo, outside):
+        assert scoped_yolo(_function_call("run_shell", {"command": f"cp a.txt {outside}\\b.txt"})) is False
+
+    def test_write_redirect_to_outside_path_escalates(self, scoped_yolo, outside):
+        assert scoped_yolo(_function_call("run_shell", {"command": f"echo x > {outside}\\o.log"})) is False
+
+    def test_set_content_outside_escalates(self, scoped_yolo, outside):
+        assert scoped_yolo(_function_call("run_shell", {"command": f"Set-Content {outside}\\f.txt -Value y"})) is False
+
+    def test_variable_path_reference_escalates_conservatively(self, scoped_yolo):
+        # $HOME/x.log references a path via an unresolvable variable that
+        # contains a separator: conservatively escalated.
+        assert scoped_yolo(_function_call("run_shell", {"command": "echo hi > $HOME/x.log"})) is False
+
+    def test_bare_variable_without_separator_is_ignored(self, scoped_yolo):
+        # A bare variable (no path separator) is not treated as a path token;
+        # the redirect target out.log is inside workdir, so this is approved.
+        assert scoped_yolo(_function_call("run_shell", {"command": "echo $PATH > out.log"})) is True
+
+    def test_workdir_relative_redirect_to_parent_escalates(self, scoped_yolo):
+        # A relative path that climbs out of workdir via .. is escalated.
+        # tmp_path workdirs are always strictly nested, so one level escapes.
+        assert scoped_yolo(_function_call("run_shell", {"command": "echo x > ..\\escape.txt"})) is False
+
+
 class TestYoloWiring:
     def test_yolo_rule_reaches_middleware(self, tmp_path: Path) -> None:
         agent = create_harness_agent(
