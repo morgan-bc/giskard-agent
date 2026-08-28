@@ -8,11 +8,9 @@ from typing import Any, Literal, cast
 
 from typing_extensions import Never
 
-from giskard import Content
-
 from ..agents import SupportsAgentRun
 from ..sessions import AgentSession
-from ..types import AgentResponse, AgentResponseUpdate, Message, ResponseStream
+from ..types import AgentResponse, AgentResponseUpdate, Message, ResponseStream, Content
 from .agent_utils import resolve_agent_id
 from .const import GLOBAL_KWARGS_KEY, INTERNAL_SOURCE_ID, WORKFLOW_RUN_KWARGS_KEY
 from .executor import Executor, handler

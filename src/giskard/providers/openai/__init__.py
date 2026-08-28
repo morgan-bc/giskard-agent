@@ -41,5 +41,4 @@ __all__ = [
     "OpenAISettings",
     "RawOpenAIChatClient",
     "RawOpenAIChatCompletionClient",
-    "__version__",
 ]
