@@ -166,7 +166,7 @@ class TestYoloWiring:
         rule_names = {r.__name__ for r in middleware.auto_approval_rules}
         assert "_yolo_rule" in rule_names
 
-    def test_experimental_warnings_removed(self, tmp_path: Path) -> None:
+    def test_experimental_warnings_removed(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         with warnings.catch_warnings():
             # Only the factory parameter warning is forbidden; other
             # @experimental(HARNESS) suppliers wired by the factory (stores,
@@ -178,5 +178,9 @@ class TestYoloWiring:
                 category=ExperimentalWarning,
                 message=r"\[HARNESS\] create_harness_agent\b.*",
             )
+            # Clear the shared dedup registry so a re-introduced factory
+            # warning is actually emitted (not suppressed by an earlier
+            # test's HARNESS warning) in merged runs too.
+            monkeypatch.setattr("giskard.core._feature_stage._WARNED_FEATURES", set())
             # loop_should_continue previously triggered the harness experimental warning.
             create_harness_agent(MagicMock(), workdir=tmp_path, loop_should_continue=lambda response: False)
