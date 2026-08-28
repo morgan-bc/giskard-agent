@@ -10,7 +10,6 @@ context providers (todo, mode, memory, skills).
 
 from __future__ import annotations
 
-import logging
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -47,8 +46,6 @@ if TYPE_CHECKING:
     from ..tools import ToolTypes
     from .loop import NextMessageCallable, ShouldContinueCallable
     from .tool_approval import ToolApprovalRuleCallback
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_HARNESS_INSTRUCTIONS = """\
 You are a helpful AI assistant that uses tools to complete tasks.
@@ -332,9 +329,12 @@ def create_harness_agent(
     - **FileAccessProvider** — shared file read/write tools (on by default,
       backed by a ``FileSystemAgentFileStore`` rooted at the current directory;
       disable via ``disable_file_access`` or customize via ``file_access_store``)
+    - **Web search** — ``web_search`` and ``web_fetch`` tools via
+      ``ParallelSearchClient`` (on by default; disable via
+      ``disable_web_search`` or supply your own via ``web_search_client``)
     - **Shell tool** — local shell command execution (on by default via
-      ``LocalShellTool``; disable via ``disable_shell`` or customize via
-      ``shell_executor``)
+      ``LocalShellTool`` anchored at ``workdir``; disable via ``disable_shell``
+      or customize via ``shell_executor``)
     - **SkillsProvider** — skill discovery and progressive loading
     - **BackgroundAgentsProvider** — delegate work to background sub-agents
     - **Tool approval** — "don't ask again" standing approval rules plus heuristic
@@ -343,13 +343,6 @@ def create_harness_agent(
     - **OpenTelemetry** — observability via ``AgentTelemetryLayer``
 
     Each feature can be disabled or customized via keyword arguments.
-
-    .. note:: Experimental features
-
-        ``create_harness_agent`` is released, but a few of the features it can wire in are
-        still experimental: **background agents** (``background_agents``) and
-        **looping** (``loop_should_continue``). Enabling either emits an
-        ``ExperimentalWarning``.
 
     Examples:
         Basic usage:
@@ -422,6 +415,16 @@ def create_harness_agent(
         file_memory_store: Custom AgentFileStore backing the FileMemoryProvider. When None
             (and disable_file_memory is False), a FileSystemAgentFileStore rooted at
             ``{cwd}/agent-file-memory`` is created. Ignored when disable_file_memory is True.
+        workdir: The working directory that roots all file I/O — the shared
+            file-access store, the session file-memory store
+            (``{workdir}/agent-file-memory``), the default shell tool's
+            execution directory, and the YOLO approval boundary. When None
+            (default), the current working directory is used. Explicitly
+            supplied ``file_access_store`` / ``file_memory_store`` /
+            ``shell_executor`` are not overridden by this value. When ``workdir``
+            is None, the default ``LocalShellTool`` is anchored at ``Path.cwd()``
+            and re-anchors each persistent-shell command there (``confine_workdir``),
+            whereas previously it was constructed without a workdir.
         disable_file_access: When True, skip the FileAccessProvider. When False (default),
             file access tools are enabled: when ``file_access_store`` is None, a
             ``FileSystemAgentFileStore`` rooted at the current working directory is created.
@@ -467,21 +470,34 @@ def create_harness_agent(
             ``BackgroundAgentsProvider``. May include ``{background_agents}`` placeholder
             which will be replaced with the agent listing.
         disable_shell: When True, skip the shell tool and ShellEnvironmentProvider. When
-            False (default), a ``LocalShellTool`` is created automatically (platform default
-            shell, persistent mode, approval required per command).
-        shell_executor: Optional shell tool overriding the default ``LocalShellTool``. When
-            provided, the shell tool and a ``ShellEnvironmentProvider`` are wired from it
-            (provided the client supports shell tools; otherwise a warning is logged
-            and both are skipped). The object must expose ``as_function()`` and satisfy the
-            ``ShellExecutor`` protocol -- e.g. a ``LocalShellTool`` or ``DockerShellTool``.
-            The caller owns the executor's lifecycle.
+            False (default), a ``LocalShellTool`` anchored at ``workdir`` is created
+            automatically (platform default shell, persistent mode, approval required per
+            command).
+        shell_executor: Optional shell executor overriding the default ``LocalShellTool``. When
+            provided, the shell tool and a ``ShellEnvironmentProvider`` are wired from it. The
+            object must expose ``as_function()`` and satisfy the ``ShellExecutor`` protocol --
+            e.g. a ``LocalShellTool`` or ``DockerShellTool``. The caller owns the executor's
+            lifecycle and its workdir configuration (the harness does not inject ``workdir``).
         shell_environment_provider_options: Optional ``ShellEnvironmentProviderOptions``
             (from ``agent-framework-tools``) used to customize the ``ShellEnvironmentProvider``
             environment probing and instructions. Only used when ``shell_executor`` is provided.
-        disable_web_search: When True, skip automatic web search tool inclusion.
-            When False (default), the web search tool is automatically added if the
-            client implements SupportsWebSearchTool. A warning is logged if the client
-            does not support web search.
+        web_search_client: Optional ``ParallelSearchClient`` supplying the
+            ``web_search`` and ``web_fetch`` tools. When None (default) and
+            ``disable_web_search`` is False, a new client is created (it
+            connects lazily on first invocation; the caller owns any supplied
+            instance and its lifecycle).
+        disable_web_search: When True, skip the web search tools. When False (default),
+            ``web_search`` and ``web_fetch`` are added via ``ParallelSearchClient``.
+        tool_approval_rule: Optional approval preset. ``"yolo"`` auto-approves
+            workdir reads, writes, and executions (including web search and
+            non-destructive shell commands); deletion operations
+            (``delete_file``, ``file_memory_delete``, destructive shell
+            commands such as ``rm``/``Remove-Item``) and any unknown tool
+            still require human approval. Requires
+            ``disable_tool_auto_approval=False``. Known limitation: the shell
+            check inspects each command segment's leading token only, so
+            ``sudo rm`` / ``xargs rm`` / aliases are not caught — approval is a
+            UX boundary, not a sandbox.
         disable_tool_auto_approval: When True, do not wire the tool auto-approval middleware.
             When False (default), a :class:`~giskard.ToolApprovalMiddleware` is added
             (outermost) to coordinate "don't ask again" standing approval rules and queued
@@ -516,7 +532,9 @@ def create_harness_agent(
     Raises:
         ValueError: If max_context_window_tokens is provided and <= 0, or
             max_output_tokens is provided and <= 0, or max_output_tokens >=
-            max_context_window_tokens when both are provided.
+            max_context_window_tokens when both are provided, or
+            tool_approval_rule is not None or "yolo", or tool_approval_rule
+            is "yolo" and disable_tool_auto_approval is True.
     """
     if max_context_window_tokens is not None and max_context_window_tokens <= 0:
         raise ValueError("max_context_window_tokens must be positive.")

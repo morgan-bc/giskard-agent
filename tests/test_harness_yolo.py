@@ -12,7 +12,7 @@ from giskard import create_harness_agent
 from giskard.core._feature_stage import ExperimentalWarning
 from giskard.core.harness.file_access import FileAccessProvider, FileSystemAgentFileStore
 from giskard.core.harness.file_memory import FileMemoryProvider
-from giskard.core.harness.tool_approval import create_yolo_approval_rule
+from giskard.core.harness.tool_approval import ToolApprovalRuleCallback, create_yolo_approval_rule
 from giskard.core.types import Content
 from giskard.tools.shell import LocalShellTool
 from giskard.tools.web_search import ParallelSearchClient
@@ -23,7 +23,7 @@ def _function_call(name: str, arguments: dict | None = None) -> Content:
 
 
 @pytest.fixture()
-def yolo() -> object:
+def yolo() -> ToolApprovalRuleCallback:
     return create_yolo_approval_rule(Path.cwd().resolve())
 
 
@@ -54,6 +54,11 @@ class TestDestructiveShellDetection:
             "cd build && python -m pytest -q",
             "Get-ChildItem -Recurse -Filter *.py",
             "echo hello",
+            "",
+            "   ",
+            "dir notes",
+            "border 1",
+            "echo rm -rf x",
         ],
     )
     def test_safe_commands_are_approved(self, yolo, command):
@@ -145,6 +150,10 @@ class TestDefaultToolAssembly:
         client = ParallelSearchClient()
         agent = create_harness_agent(MagicMock(), workdir=tmp_path, web_search_client=client)
         assert self._tool_names(agent).count("web_search") == 1
+        web_search_tool = next(
+            t for t in agent.default_options["tools"] if getattr(t, "name", "") == "web_search"
+        )
+        assert web_search_tool is client.get_tools()[0]
 
     def test_shell_tool_wired_without_supports_shell_tool(self, tmp_path: Path) -> None:
         # MagicMock does NOT implement SupportsShellTool; previously this path

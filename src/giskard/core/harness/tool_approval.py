@@ -79,7 +79,9 @@ def _is_destructive_shell_command(command: str) -> bool:
     Only the leading token of each segment (split on ``&&``, ``;``, ``|``, and
     newlines) is inspected. Known limitations (by design — approval is a UX
     boundary, not a hard security boundary): ``sudo rm``, ``xargs rm``, shell
-    aliases, and scripts that delete internally are not caught.
+    aliases, and scripts that delete internally are not caught. ``git rm`` is
+    also missed (the segment's leading token is ``git``), and cmd.exe
+    single-``&`` chaining (``echo hi & del x``) is not split into segments.
     """
     for segment in _YOLO_COMMAND_SEGMENT_RE.split(command):
         leading = re.match(r"\s*(\S+)", segment)
