@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..agents import Agent, SupportsAgentRun
 from ..compaction import CompactionProvider, ContextWindowCompactionStrategy
-from .._feature_stage import ExperimentalFeature, warn_experimental_feature
 from ..sessions import ContextProvider, HistoryProvider, InMemoryHistoryProvider, MessageInjectionMiddleware
 from ..skills import SkillsProvider
 from ..telemetry import FeatureIndex, mark_feature_used
@@ -29,7 +28,7 @@ from .file_memory import FileMemoryProvider
 from .loop import DEFAULT_MAX_ITERATIONS, AgentLoopMiddleware
 from .mode import AgentModeProvider
 from .todo import TodoProvider
-from .tool_approval import ToolApprovalMiddleware
+from .tool_approval import ToolApprovalMiddleware, create_yolo_approval_rule
 
 if sys.version_info >= (3, 13):
     from typing import TypeVar  # pragma: no cover
@@ -269,29 +268,6 @@ OptionsCoT = TypeVar(
     bound=TypedDict,  # type: ignore[valid-type]
     default="ChatOptions[None]",
 )
-
-
-def _warn_experimental_harness_params(
-    param_names: Sequence[str],
-    *,
-    feature_id: str,
-    detail: str,
-) -> None:
-    """Emit a single ExperimentalWarning when experimental harness features are enabled.
-
-    ``create_harness_agent`` itself is released, but some of the features it can wire in
-    remain experimental or pre-release. When a caller opts into one of those features, warn
-    once (pointing at the caller's call site) naming the responsible parameter(s), and seed a
-    per-feature dedup key so the downstream experimental provider does not warn again.
-    """
-    if not param_names:
-        return
-    joined = ", ".join(repr(name) for name in param_names)
-    warn_experimental_feature(
-        f"[{feature_id}] create_harness_agent parameter(s) {joined} enable "
-        f"{detail} that may change or be removed in future versions without notice.",
-        feature_id=feature_id,
-    )
 
 
 def create_harness_agent(
@@ -560,19 +536,6 @@ def create_harness_agent(
             "set disable_tool_auto_approval=False."
         )
 
-    # Warn when opting into harness features that are still experimental. create_harness_agent
-    # itself is released, but background agents and looping remain experimental.
-    experimental_params: list[str] = []
-    if background_agents:
-        experimental_params.append("background_agents")
-    if loop_should_continue is not None:
-        experimental_params.append("loop_should_continue")
-    _warn_experimental_harness_params(
-        experimental_params,
-        feature_id=ExperimentalFeature.HARNESS.value,
-        detail="experimental harness features",
-    )
-
     # One working directory roots all file I/O: the shared file-access store,
     # the session file-memory store, the default shell tool, and the YOLO
     # approval boundary. Existing explicit stores still win.
@@ -670,9 +633,15 @@ def create_harness_agent(
     # When should_continue is supplied, the loop is prepended ahead of tool approval so it sits
     # outermost of all: each loop iteration is a full agent run (including tool approval), and the
     # loop's approval escape hatch returns any pending approval request to the caller.
+    # Resolve auto-approval rules: caller-supplied heuristics plus the YOLO
+    # preset when requested. Evaluated after standing rules, before prompting.
+    resolved_auto_approval_rules = list(auto_approval_rules or [])
+    if tool_approval_rule == "yolo":
+        resolved_auto_approval_rules.append(create_yolo_approval_rule(resolved_workdir))
+
     assembled_middleware: list[MiddlewareTypes] = []
     if not disable_tool_auto_approval:
-        assembled_middleware.append(ToolApprovalMiddleware(auto_approval_rules=auto_approval_rules))
+        assembled_middleware.append(ToolApprovalMiddleware(auto_approval_rules=resolved_auto_approval_rules or None))
     if loop_should_continue is not None:
         assembled_middleware.insert(
             0,

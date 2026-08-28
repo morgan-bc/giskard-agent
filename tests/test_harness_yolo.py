@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from giskard import create_harness_agent
+from giskard.core._feature_stage import ExperimentalWarning
 from giskard.core.harness.file_access import FileAccessProvider, FileSystemAgentFileStore
 from giskard.core.harness.file_memory import FileMemoryProvider
 from giskard.core.harness.tool_approval import create_yolo_approval_rule
@@ -149,3 +151,23 @@ class TestDefaultToolAssembly:
         # logged a warning and skipped the shell tool entirely.
         agent = create_harness_agent(MagicMock(), workdir=tmp_path)
         assert "run_shell" in self._tool_names(agent)
+
+
+class TestYoloWiring:
+    def test_yolo_rule_reaches_middleware(self, tmp_path: Path) -> None:
+        agent = create_harness_agent(
+            MagicMock(),
+            workdir=tmp_path,
+            tool_approval_rule="yolo",
+        )
+        from giskard.core.harness.tool_approval import ToolApprovalMiddleware
+
+        middleware = next(m for m in agent.middleware if isinstance(m, ToolApprovalMiddleware))
+        rule_names = {r.__name__ for r in middleware.auto_approval_rules}
+        assert "_yolo_rule" in rule_names
+
+    def test_experimental_warnings_removed(self, tmp_path: Path) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", ExperimentalWarning)
+            # loop_should_continue previously triggered the harness experimental warning.
+            create_harness_agent(MagicMock(), workdir=tmp_path, loop_should_continue=lambda response: False)
