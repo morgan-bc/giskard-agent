@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
+from giskard import create_harness_agent
+from giskard.core.harness.file_access import FileAccessProvider, FileSystemAgentFileStore
+from giskard.core.harness.file_memory import FileMemoryProvider
 from giskard.core.harness.tool_approval import create_yolo_approval_rule
 from giskard.core.types import Content
+from giskard.tools.shell import LocalShellTool
 
 
 def _function_call(name: str, arguments: dict | None = None) -> Content:
@@ -77,3 +82,41 @@ class TestYoloApprovalMatrix:
         # Runtime edge: a function_call content without a name escalates.
         # Constructed directly since from_function_call types name as str.
         assert yolo(Content("function_call", call_id="c1", name=None)) is False
+
+
+class TestWorkdirThreading:
+    def test_workdir_roots_file_access_store(self, tmp_path: Path) -> None:
+        agent = create_harness_agent(MagicMock(), workdir=tmp_path)
+        provider = next(p for p in agent.context_providers if isinstance(p, FileAccessProvider))
+        assert isinstance(provider.store, FileSystemAgentFileStore)
+        assert provider.store.root_path == tmp_path.resolve()
+
+    def test_workdir_roots_file_memory_store(self, tmp_path: Path) -> None:
+        agent = create_harness_agent(MagicMock(), workdir=tmp_path)
+        provider = next(p for p in agent.context_providers if isinstance(p, FileMemoryProvider))
+        assert isinstance(provider.store, FileSystemAgentFileStore)
+        assert provider.store.root_path == (tmp_path.resolve() / "agent-file-memory")
+
+    def test_workdir_reaches_default_shell_tool(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict = {}
+
+        class _SpyShellTool(LocalShellTool):
+            def __init__(self, **kwargs: object) -> None:
+                super().__init__(**kwargs)  # type: ignore[arg-type]
+                captured.update(kwargs)
+
+        monkeypatch.setattr("giskard.tools.shell.LocalShellTool", _SpyShellTool)
+        create_harness_agent(MagicMock(), workdir=tmp_path)
+        # The factory passes the resolved workdir through to the shell tool;
+        # LocalShellTool normalizes it to a str via os.fspath internally.
+        assert Path(captured["workdir"]) == tmp_path.resolve()
+
+
+class TestToolApprovalRuleValidation:
+    def test_yolo_with_disabled_auto_approval_raises(self) -> None:
+        with pytest.raises(ValueError, match="disable_tool_auto_approval"):
+            create_harness_agent(MagicMock(), tool_approval_rule="yolo", disable_tool_auto_approval=True)
+
+    def test_unknown_rule_value_raises(self) -> None:
+        with pytest.raises(ValueError, match="tool_approval_rule"):
+            create_harness_agent(MagicMock(), tool_approval_rule="bogus")

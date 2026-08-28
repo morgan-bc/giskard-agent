@@ -14,7 +14,7 @@ import logging
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from ..agents import Agent, SupportsAgentRun
 from ..clients import SupportsShellTool, SupportsWebSearchTool
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from giskard.tools.shell import ShellEnvironmentProviderOptions, ShellExecutor
+    from giskard.tools.web_search import ParallelSearchClient
 
     from ..clients import SupportsChatGetResponse
     from ..compaction import CompactionStrategy, TokenizerProtocol
@@ -152,6 +153,7 @@ def _assemble_context_providers(
     mode_provider: AgentModeProvider | None,
     disable_file_memory: bool,
     file_memory_store: AgentFileStore | None,
+    workdir: Path,
     file_access_store: AgentFileStore | None,
     file_access_disable_write_tools: bool,
     file_access_enable_extra_tools: bool,
@@ -181,11 +183,11 @@ def _assemble_context_providers(
         providers.append(mode_provider or AgentModeProvider())
 
     # File-based session memory (on by default). Default store is rooted at
-    # ``{cwd}/agent-file-memory``; the provider isolates memories per session
+    # ``{workdir}/agent-file-memory``; the provider isolates memories per session
     # via its default ``scope=session_id``.
     if not disable_file_memory:
         memory_store = file_memory_store or FileSystemAgentFileStore(
-            (Path.cwd().resolve() / "agent-file-memory").resolve()
+            (workdir / "agent-file-memory").resolve()
         )
         providers.append(FileMemoryProvider(memory_store))
 
@@ -320,6 +322,7 @@ def create_harness_agent(
     mode_provider: AgentModeProvider | None = None,
     disable_file_memory: bool = False,
     file_memory_store: AgentFileStore | None = None,
+    workdir: str | Path | None = None,
     disable_file_access: bool = False,
     file_access_store: AgentFileStore | None = None,
     file_access_disable_write_tools: bool = False,
@@ -333,7 +336,9 @@ def create_harness_agent(
     disable_shell: bool = False,
     shell_executor: ShellExecutor | None = None,
     shell_environment_provider_options: ShellEnvironmentProviderOptions | None = None,
+    web_search_client: ParallelSearchClient | None = None,
     disable_web_search: bool = False,
+    tool_approval_rule: Literal["yolo"] | None = None,
     disable_tool_auto_approval: bool = False,
     auto_approval_rules: Sequence[ToolApprovalRuleCallback] | None = None,
     loop_should_continue: ShouldContinueCallable | None = None,
@@ -553,6 +558,13 @@ def create_harness_agent(
         and max_output_tokens >= max_context_window_tokens
     ):
         raise ValueError("max_output_tokens must be less than max_context_window_tokens.")
+    if tool_approval_rule not in (None, "yolo"):
+        raise ValueError(f"tool_approval_rule must be None or 'yolo', got {tool_approval_rule!r}.")
+    if tool_approval_rule == "yolo" and disable_tool_auto_approval:
+        raise ValueError(
+            "tool_approval_rule='yolo' requires the tool auto-approval middleware; "
+            "set disable_tool_auto_approval=False."
+        )
 
     # Warn when opting into harness features that are still experimental. create_harness_agent
     # itself is released, but background agents and looping remain experimental.
@@ -567,10 +579,12 @@ def create_harness_agent(
         detail="experimental harness features",
     )
 
-    # File access is on by default: back it with a store rooted at the current
-    # directory unless the caller supplies one or opts out.
+    # One working directory roots all file I/O: the shared file-access store,
+    # the session file-memory store, the default shell tool, and the YOLO
+    # approval boundary. Existing explicit stores still win.
+    resolved_workdir = Path(workdir).resolve() if workdir is not None else Path.cwd().resolve()
     if file_access_store is None and not disable_file_access:
-        file_access_store = FileSystemAgentFileStore(Path.cwd().resolve())
+        file_access_store = FileSystemAgentFileStore(resolved_workdir)
 
     # Build history provider.
     resolved_history = history_provider or InMemoryHistoryProvider()
@@ -595,7 +609,7 @@ def create_harness_agent(
     if shell_executor is None and not disable_shell:
         from giskard.tools.shell import LocalShellTool
 
-        shell_executor = LocalShellTool()
+        shell_executor = LocalShellTool(workdir=resolved_workdir)
 
     # Build the shell tool and environment provider (opt-in via shell_executor).
     shell_tool, shell_provider = _assemble_shell(
@@ -614,6 +628,7 @@ def create_harness_agent(
         mode_provider=mode_provider,
         disable_file_memory=disable_file_memory,
         file_memory_store=file_memory_store,
+        workdir=resolved_workdir,
         file_access_store=file_access_store,
         file_access_disable_write_tools=file_access_disable_write_tools,
         file_access_enable_extra_tools=file_access_enable_extra_tools,
