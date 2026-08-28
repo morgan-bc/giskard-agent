@@ -5,8 +5,10 @@ from __future__ import annotations
 import copy
 import inspect
 import json
+import re
 from asyncio import sleep
 from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
+from pathlib import Path
 from typing import Any, Literal, cast
 
 from ..middleware import AgentContext, AgentMiddleware
@@ -36,6 +38,94 @@ _COLLECTED_APPROVAL_RESPONSES_KEY = "collected_approval_responses"
 
 ToolApprovalScope = Literal["tool", "tool_with_arguments"]
 ToolApprovalRuleCallback = Callable[[Content], bool | Awaitable[bool]]
+
+# Tools auto-approved by the YOLO rule: read-only tools, workdir-confined write
+# tools, read-only web tools, and the shell tool (subject to the destructive
+# command check below). Deletions and any unknown tool escalate to the human.
+_YOLO_APPROVED_TOOLS: frozenset[str] = frozenset({
+    "read_file",
+    "ls",
+    "glob",
+    "grep",
+    "write_file",
+    "edit_file",
+    "edit_file_lines",
+    "file_memory_write",
+    "file_memory_read",
+    "file_memory_ls",
+    "file_memory_grep",
+    "file_memory_replace",
+    "file_memory_replace_lines",
+    "web_search",
+    "web_fetch",
+})
+
+# Dangerous deletions always require human confirmation.
+_YOLO_ESCALATED_TOOLS: frozenset[str] = frozenset({"delete_file", "file_memory_delete"})
+
+# Matches (word-boundary, case-insensitive) a destructive command name inside a
+# shell command segment's leading token. Covers POSIX rm/rmdir, Windows
+# del/erase/rd, and PowerShell Remove-Item plus its aliases (ri, rm, del, rd,
+# erase). A path-prefixed binary such as /bin/rm also matches.
+_YOLO_DESTRUCTIVE_TOKEN_RE = re.compile(r"\b(rm|rmdir|del|erase|rd|ri|remove-item)\b", re.IGNORECASE)
+
+# Segment separators: command chaining and pipelines.
+_YOLO_COMMAND_SEGMENT_RE = re.compile(r"&&|;|\||\r?\n")
+
+
+def _is_destructive_shell_command(command: str) -> bool:
+    """Return whether any segment of ``command`` starts with a delete-style command.
+
+    Only the leading token of each segment (split on ``&&``, ``;``, ``|``, and
+    newlines) is inspected. Known limitations (by design — approval is a UX
+    boundary, not a hard security boundary): ``sudo rm``, ``xargs rm``, shell
+    aliases, and scripts that delete internally are not caught.
+    """
+    for segment in _YOLO_COMMAND_SEGMENT_RE.split(command):
+        leading = re.match(r"\s*(\S+)", segment)
+        if leading and _YOLO_DESTRUCTIVE_TOKEN_RE.search(leading.group(1)):
+            return True
+    return False
+
+
+def create_yolo_approval_rule(workdir: Path) -> ToolApprovalRuleCallback:
+    """Create a YOLO auto-approval rule bounded by ``workdir``.
+
+    Classification:
+
+    - workdir reads/writes/executes (read tools, write/edit tools, memory
+      tools, web search, non-destructive shell commands) -> auto-approve.
+    - deletions (``delete_file``, ``file_memory_delete``, destructive shell
+      commands) -> escalate to human confirmation.
+    - anything else (unknown or MCP tools) -> escalate.
+
+    Args:
+        workdir: The resolved working directory that bounds the agent's file
+            tools. The file/memory stores already confine paths to this root,
+            so no per-call path check is performed here; the argument pins the
+            boundary for future argument-aware checks.
+
+    Returns:
+        A callback suitable for :class:`ToolApprovalMiddleware`'s
+        ``auto_approval_rules``.
+    """
+    del workdir  # Reserved: the store confines paths; see docstring.
+
+    def _yolo_rule(function_call: Content) -> bool:
+        name = function_call.name
+        if name is None:
+            return False
+        if name in _YOLO_ESCALATED_TOOLS:
+            return False
+        if name == "run_shell":
+            arguments = function_call.parse_arguments()
+            command = arguments.get("command") if isinstance(arguments, Mapping) else None
+            if not isinstance(command, str) or _is_destructive_shell_command(command):
+                return False
+            return True
+        return name in _YOLO_APPROVED_TOOLS
+
+    return _yolo_rule
 
 
 def _parse_function_arguments(function_call: Content) -> dict[str, Any]:
@@ -640,4 +730,5 @@ __all__ = [
     "ToolApprovalState",
     "create_always_approve_tool_response",
     "create_always_approve_tool_with_arguments_response",
+    "create_yolo_approval_rule",
 ]
