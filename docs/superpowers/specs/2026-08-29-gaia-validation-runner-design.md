@@ -40,12 +40,13 @@ evaluate_gaia.py ──▶ runs/<timestamp>/scored.jsonl + 控制台汇总
 
 ## 2. gaia_scorer.py（官方 scorer 移植）
 
-- 移植 GAIA 官方 `question_scorer` 三分支逻辑：
-  1. **数字题**：ground_truth 可 float → 预测归一化（去 `,` `$` `%`）后数值比较
-  2. **列表题**：ground_truth 含 `,` 或 `;` → 按分隔符拆分逐项比对，匹配率 > 50% 计分
-  3. **字符串题**：小写、去标点、去冠词（a/an/the）后精确比较
-- 官方在数字解析失败时用 `word2number` 转换英文数字词；为不加依赖，内置一个覆盖
-  0–999 组合的轻量 `w2n` fallback，解析失败返回 NaN → 判 False
+- 移植 GAIA 官方 `question_scorer` 三分支逻辑（对照官方源码逐行核对）：
+  1. **数字题**：ground_truth 可 float → 预测去 `$` `%` `,` 后转 float 数值比较
+  2. **列表题**：ground_truth 含 `,` 或 `;` → 双方按分隔符拆分；**元素数不同直接判 False，
+     否则逐元素比较（元素为数字则数值比较，否则保留标点做字符串比较）**
+  3. **字符串题**：去全部空白、去标点、小写后精确比较（官方不做冠词剔除）
+- 官方数字分支在 float 解析失败时返回 `inf`（必然判 False）；本移植在 float 失败后先尝试
+  内置的 0–999 英文数字词转换 fallback，仍失败才返回 `inf`，保持零第三方依赖
 - 返回 `(score: bool, detail: str)`，detail 记录走了哪个分支
 
 ## 3. run_gaia.py（运行器）
