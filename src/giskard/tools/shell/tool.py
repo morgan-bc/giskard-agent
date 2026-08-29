@@ -140,7 +140,7 @@ class LocalShellTool:
     def __init__(
         self,
         *,
-        mode: ShellMode = "persistent",
+        mode: ShellMode = "stateless",
         shell: str | Sequence[str] | None = None,
         workdir: str | os.PathLike[str] | None = None,
         confine_workdir: bool = True,

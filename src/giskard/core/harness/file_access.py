@@ -285,7 +285,6 @@ def _line_edits(edits: list[Any]) -> list[tuple[int, str]]:
     return normalized
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class FileSearchMatch(SerializationMixin):
     """Represent one line within a file that matched a search pattern."""
 
@@ -340,7 +339,6 @@ class FileSearchMatch(SerializationMixin):
         return f"FileSearchMatch(line_number={self.line_number!r}, line={self.line!r})"
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class FileSearchResult(SerializationMixin):
     """Represent the search result for one file: the file name, a snippet, and the matching lines."""
 
@@ -415,7 +413,6 @@ class FileSearchResult(SerializationMixin):
         )
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class FileStoreEntry(SerializationMixin):
     """Represent one entry in a directory listing: a file or a subdirectory."""
 
@@ -510,7 +507,6 @@ def _search_file_content(file_name: str, content: str, regex: re.Pattern[str]) -
     )
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class AgentFileStore(ABC):
     """Abstract base class for file storage operations used by :class:`FileAccessProvider`.
 
@@ -620,7 +616,6 @@ class AgentFileStore(ABC):
         """Ensure ``path`` exists as a directory, creating it if necessary."""
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class InMemoryAgentFileStore(AgentFileStore):
     """An in-memory :class:`AgentFileStore` backed by a dict.
 
@@ -767,7 +762,6 @@ class InMemoryAgentFileStore(AgentFileStore):
         del path
 
 
-@experimental(feature_id=ExperimentalFeature.HARNESS)
 class FileSystemAgentFileStore(AgentFileStore):
     """A disk-backed :class:`AgentFileStore` rooted under a configurable directory.
 
