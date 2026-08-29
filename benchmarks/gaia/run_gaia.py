@@ -168,18 +168,26 @@ async def run(args: argparse.Namespace) -> None:
     transcripts_dir.mkdir(exist_ok=True)
     results_path = run_dir / "results.jsonl"
 
-    task_id_filter = (
-        {t.strip() for t in args.task_ids.split(",") if t.strip()} if args.task_ids else None
-    )
+    task_id_filter = None
+    if args.task_ids:
+        task_id_filter = {t.strip() for t in args.task_ids.split(",") if t.strip()}
+        if not task_id_filter:
+            sys.exit("--task-ids given but no valid ids parsed")
     tasks = load_tasks(
         args.dataset, level=args.level, task_ids=task_id_filter, limit=args.limit
     )
+    if task_id_filter and not tasks:
+        sys.exit("No dataset tasks matched --task-ids")
 
     done_ids: set[str] = set()
     if results_path.exists() and not args.force:
         for line in results_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
+            if not line.strip():
+                continue
+            try:
                 done_ids.add(json.loads(line)["task_id"])
+            except json.JSONDecodeError:
+                print(f"WARNING: skipping malformed line in results.jsonl: {line[:80]!r}")
         tasks = [t for t in tasks if t["task_id"] not in done_ids]
 
     total = len(tasks)
