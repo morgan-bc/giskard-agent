@@ -75,9 +75,12 @@ async def run_task(
     """Run one GAIA task; return prediction/error/turns/duration/updates."""
     session = agent.create_session()
     started = time.monotonic()
-    all_text: list[str] = []
     updates: list[dict] = []
     message_ids: set[str] = set()
+    # Streaming text arrives as word-level fragments; group per assistant message
+    # (join fragments with "", messages with "\n") so "FINAL ANSWER:" stays intact.
+    texts_by_message: dict[str, list[str]] = {}
+    message_order: list[str] = []
     turns_over_limit = False
     error: str | None = None
 
@@ -94,7 +97,11 @@ async def run_task(
                     turns_over_limit = True
                     break
             if update.text:
-                all_text.append(update.text)
+                mid = update.message_id or ""
+                if mid not in texts_by_message:
+                    texts_by_message[mid] = []
+                    message_order.append(mid)
+                texts_by_message[mid].append(update.text)
 
     try:
         await asyncio.wait_for(consume(), timeout=timeout_s)
@@ -106,7 +113,8 @@ async def run_task(
     if turns_over_limit and not error:
         error = "max_turns"
 
-    prediction = extract_final_answer("\n".join(all_text)) or ""
+    full_text = "\n".join("".join(texts_by_message[mid]) for mid in message_order)
+    prediction = extract_final_answer(full_text) or ""
     if prediction == "" and error is None:
         error = "missing_final_answer"
 
