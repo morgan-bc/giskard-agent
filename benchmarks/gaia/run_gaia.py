@@ -66,7 +66,7 @@ def load_tasks(
 
 
 async def run_task(
-    agent,  # noqa: ANN001 — Agent type import would create a cycle risk; duck-typed
+    agent,  # duck-typed Agent; importing the type here would risk import cycles
     question: str,
     *,
     timeout_s: float,
@@ -159,7 +159,7 @@ async def run(args: argparse.Namespace) -> None:
     model = os.getenv("BASE_MODEL") or "unknown"
 
     run_dir = args.output_dir or (
-        Path(__file__).resolve().parent / "runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
+        Path(__file__).resolve().parent / "runs" / datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     workdir = run_dir / "workdir"
