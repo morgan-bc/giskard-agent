@@ -53,6 +53,24 @@ def test_format_summary_includes_breakdowns():
     assert "Wrong answers" in summary
 
 
+def test_load_results_dedups_and_skips_malformed(tmp_path, capsys):
+    results_dir = tmp_path / "run"
+    results_dir.mkdir()
+    (results_dir / "results.jsonl").write_text(
+        json.dumps(_row("a", "wrong", "41", 1))
+        + "\n{broken\n"
+        + json.dumps(_row("a", "41", "41", 1))
+        + "\n",
+        encoding="utf-8",
+    )
+    rows = evaluate_gaia.load_results(results_dir)
+    assert len(rows) == 1
+    assert rows[0]["prediction"] == "41"  # last row wins
+    out = capsys.readouterr().out
+    assert "malformed" in out
+    assert "duplicate" in out
+
+
 def test_missing_dataset_rows_warning(tmp_path, capsys):
     dataset = tmp_path / "dev.json"
     dataset.write_text(json.dumps([{"task_id": "a"}, {"task_id": "zzz"}]), encoding="utf-8")

@@ -70,7 +70,7 @@ evaluate_gaia.py ──▶ runs/<timestamp>/scored.jsonl + 控制台汇总
 2. `create_harness_agent(workdir=runs/<ts>/workdir, tool_approval_rule="yolo",
    web_search_client=共享的 ParallelSearchClient)`；一个 agent 实例复用，每题新建 session
 3. Prompt = GAIA 官方 FINAL ANSWER 指令 + 题目 Question
-4. `asyncio.wait_for` 包裹整题（超时 → error=`timeout`，prediction 置空）
+4. `asyncio.wait_for` 包裹整题（超时 → error=`timeout`；若中断前已产出文本，仍尝试提取 prediction）
 5. 流式迭代 updates：
    - 按 `message_id` 分组计数 assistant 回合，超过 `--max-turns` 主动 break 中断流
      （error=`max_turns`）
@@ -106,7 +106,7 @@ evaluate_gaia.py ──▶ runs/<timestamp>/scored.jsonl + 控制台汇总
 
 ## 6. 测试
 
-- `tests/test_gaia_scorer.py`：scorer 纯函数单测（数字归一化、`$`/`%`/逗号、冠词剔除、
-  列表拆分与 50% 阈值、英文数字词 fallback）
+- `tests/test_gaia_scorer.py`：scorer 纯函数单测（数字归一化、`$`/`%`/逗号、列表等长逐项
+  匹配、字符串去空白去标点小写、英文数字词 fallback）
 - runner 链路冒烟：`PYTHONPATH=src python benchmarks/gaia/run_gaia.py --limit 1` 手动验证
   （需要真实 API）

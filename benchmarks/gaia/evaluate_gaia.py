@@ -19,13 +19,24 @@ from gaia_scorer import question_scorer
 
 
 def load_results(results_dir: Path) -> list[dict]:
-    """Load result rows from ``results.jsonl``."""
+    """Load result rows from ``results.jsonl`` (last row wins per task_id)."""
     results_path = results_dir / "results.jsonl"
-    rows = []
+    by_task: dict[str, dict] = {}
+    duplicates = 0
     for line in results_path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rows.append(json.loads(line))
-    return rows
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            print(f"WARNING: skipping malformed line in results.jsonl: {line[:80]!r}")
+            continue
+        if row.get("task_id") in by_task:
+            duplicates += 1
+        by_task[row["task_id"]] = row
+    if duplicates:
+        print(f"WARNING: {duplicates} duplicate task_id rows in results.jsonl (last row wins)")
+    return list(by_task.values())
 
 
 def score_results(rows: list[dict]) -> list[dict]:
@@ -93,7 +104,12 @@ def main_with(*, results_dir: Path, dataset: Path | None = None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Score a GAIA run directory.")
     parser.add_argument("--results-dir", type=Path, required=True, help="Run directory containing results.jsonl")
-    parser.add_argument("--dataset", type=Path, default=None, help="Dataset JSON for missing-task cross-check")
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=Path(__file__).resolve().parent / "validation" / "dev.json",
+        help="Dataset JSON for missing-task cross-check",
+    )
     args = parser.parse_args()
     main_with(results_dir=args.results_dir, dataset=args.dataset)
 
