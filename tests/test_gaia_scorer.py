@@ -3,12 +3,8 @@
 import math
 
 import pytest
-from gaia_scorer import (
-    _words_to_number,
-    normalize_number_str,
-    normalize_str,
-    question_scorer,
-)
+
+from gaia_scorer import _words_to_number, normalize_number_str, normalize_str, question_scorer
 
 
 class TestWordsToNumber:
