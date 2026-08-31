@@ -1652,6 +1652,19 @@ class AgentSession:
         """The unique identifier for this session."""
         return self._session_id
 
+    @property
+    def last_invocation(self) -> dict[str, Any] | None:
+        """Snapshot of the most recent run's effective system prompt and tools.
+
+        Populated by the agent with the fully merged instructions and resolved
+        tool schemas right before model invocation (JSON-native values,
+        persisted with the session state). Overwritten on every run; ``None``
+        before the first run. Tool entries use the JSON Schema function spec
+        shape (``{"type": "function", "function": {...}}``).
+        """
+        snapshot = self.state.get("_last_invocation")
+        return snapshot if isinstance(snapshot, dict) else None
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize session to a plain dict for storage/transfer.
 

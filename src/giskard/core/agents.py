@@ -166,6 +166,38 @@ def _merge_options(base: dict[str, Any], override: dict[str, Any]) -> dict[str, 
     return {key: value for key, value in result.items() if value is not None}
 
 
+def _tool_to_state_value(tool: Any) -> Any:
+    """Convert a resolved tool into a JSON-native value for session state.
+
+    Function-like tools are stored as their JSON Schema spec; plain mappings
+    pass through; anything else degrades to its string representation so the
+    state dict stays snapshot-serializable.
+    """
+    if isinstance(tool, Mapping):
+        return dict(tool)
+    to_schema = getattr(tool, "to_json_schema_spec", None)
+    if callable(to_schema):
+        schema = to_schema()
+        if isinstance(schema, Mapping):
+            return dict(schema)
+    return str(tool)
+
+
+def _capture_last_invocation(session: AgentSession | None, chat_options: Mapping[str, Any]) -> None:
+    """Snapshot the effective system prompt and tools of the current run.
+
+    Called with the fully merged chat options right before model invocation;
+    overwrites the previous snapshot on every run. Values are JSON-native so
+    the state stays serializable by ``AgentSession.to_dict()``.
+    """
+    if session is None:
+        return
+    session.state["_last_invocation"] = {
+        "system_prompt": chat_options.get("instructions"),
+        "tools": [_tool_to_state_value(t) for t in chat_options.get("tools") or []],
+    }
+
+
 def _sanitize_agent_name(agent_name: str | None) -> str | None:
     """Sanitize agent name for use as a function name.
 
@@ -1474,6 +1506,10 @@ class RawAgent(BaseAgent, Generic[OptionsCoT]):
         # _merge_options strips unset (None) options, so e.g. an unset `store` is not forwarded
         # and the service decides its own default.
         co = _merge_options(chat_options, run_opts)
+
+        # Snapshot the effective system prompt and tools sent to the model for
+        # this run (provider-contributed + run-level merged).
+        _capture_last_invocation(active_session, co)
 
         # Build session_messages from session context: context messages + input messages
         session_messages: list[Message] = session_context.get_messages(include_input=True)
