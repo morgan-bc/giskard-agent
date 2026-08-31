@@ -588,6 +588,7 @@ class MCPTool:
                             "mimeType": content.mimeType,
                         },
                         default=str,
+                        ensure_ascii=False,
                     )
                 )
             elif isinstance(content, types.EmbeddedResource):
@@ -603,6 +604,7 @@ class MCPTool:
                                     "mimeType": content.resource.mimeType,
                                 },
                                 default=str,
+                                ensure_ascii=False,
                             )
                         )
             else:
@@ -611,7 +613,7 @@ class MCPTool:
             return ""
         if len(parts) == 1:
             return parts[0]
-        return json.dumps(parts, default=str)
+        return json.dumps(parts, default=str, ensure_ascii=False)
 
     def _parse_message_from_mcp(
         self,
@@ -689,7 +691,7 @@ class MCPTool:
                     result.append(Content.from_text(str(item), **additional_kwargs))
 
         if mcp_type.structuredContent is not None:
-            result.append(Content.from_text(json.dumps(mcp_type.structuredContent, default=str)))
+            result.append(Content.from_text(json.dumps(mcp_type.structuredContent, default=str, ensure_ascii=False)))
 
         if not result:
             result.append(Content.from_text("null", **additional_kwargs))

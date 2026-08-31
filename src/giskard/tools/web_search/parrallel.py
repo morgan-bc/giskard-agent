@@ -14,7 +14,9 @@ Use :meth:`ParallelSearchClient.get_tools` to obtain the two
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from typing import Any, Literal
 
 from giskard.core.mcp import MCPSpecificApproval, MCPStreamableHTTPTool
@@ -32,6 +34,28 @@ PARALLEL_MCP_CONFIG: dict[str, Any] = {
         }
     }
 }
+
+# Matches ``ensure_ascii=True`` style escapes (incl. surrogate pairs).
+_UNICODE_ESCAPE_RE = re.compile(r"\\u[0-9a-fA-F]{4}")
+
+
+def _normalize_json_text(text: str) -> str:
+    """Re-serialize JSON text with ``ensure_ascii=False``.
+
+    MCP upstreams may serialize payloads with ``ensure_ascii=True``, leaving
+    literal ``\\uXXXX`` sequences instead of readable non-ASCII characters.
+    Text containing such escapes is parsed and re-dumped; everything else
+    passes through untouched.
+    """
+    if not _UNICODE_ESCAPE_RE.search(text):
+        return text
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text
+    if isinstance(data, (dict, list)):
+        return json.dumps(data, ensure_ascii=False, default=str)
+    return text
 
 
 class ParallelSearchClient:
@@ -127,7 +151,7 @@ class ParallelSearchClient:
         result = await self._mcp.call_tool(remote_name, **kwargs)
         # MCPTool.call_tool returns list[Content] or str
         if isinstance(result, str):
-            return result
+            return _normalize_json_text(result)
         # list[Content] -> concatenate text parts
         texts: list[str] = []
         for item in result:
@@ -137,7 +161,9 @@ class ParallelSearchClient:
                 texts.append(str(getattr(item, "text", "")))
             else:
                 texts.append(str(item))
-        return "\n".join(t for t in texts if t) if texts else str(result)
+        return (
+            "\n".join(_normalize_json_text(t) for t in texts if t) if texts else str(result)
+        )
 
     # ------------------------------------------------------------------ tool factories
 

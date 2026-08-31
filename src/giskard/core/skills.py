@@ -1199,7 +1199,7 @@ class SkillsProvider(ContextProvider):
         result: dict[str, Any] = {
             "name": skill.frontmatter.name,
             "description": skill.frontmatter.description,
-            "location": location,
+            "location": str(location),
             "resources": sorted(resources),
             "scripts": sorted(scripts),
             "instructions": instructions,
