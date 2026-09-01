@@ -1383,6 +1383,7 @@ class MessageInjectionMiddleware(ChatMiddleware):
         context: ChatContext,
         call_next: Callable[[], Awaitable[None]],
         session: AgentSession,
+        captured_conversation_id: list[str | None],
     ) -> AsyncIterable[ChatResponseUpdate]:
         while True:
             context.messages = self._drain_pending_messages(session, context.messages)
@@ -1396,6 +1397,12 @@ class MessageInjectionMiddleware(ChatMiddleware):
             async for update in stream:
                 yield update
             response = await stream.get_final_response()
+            # The inner pipeline's final response may carry a conversation_id that
+            # drives the function invocation loop's next-iteration strategy (e.g. the
+            # per-service-call history middleware's local sentinel). from_updates()
+            # rebuilds the response from updates, which do not carry middleware-assigned
+            # ids, so capture it here and re-apply it on the outer response.
+            captured_conversation_id[0] = response.conversation_id
             if _response_contains_follow_up_request(response) or not self._has_pending_messages(session):
                 return
             self._update_context_conversation_id(context, response.conversation_id)
@@ -1424,9 +1431,17 @@ class MessageInjectionMiddleware(ChatMiddleware):
             return
 
         response_format = context.options.get("response_format") if context.options is not None else None
+        captured_conversation_id: list[str | None] = [None]
+
+        def _finalize_with_conversation_id(updates: Sequence[ChatResponseUpdate]) -> ChatResponse:
+            response = ChatResponse.from_updates(updates, output_format_type=response_format)
+            if response.conversation_id is None:
+                response.conversation_id = captured_conversation_id[0]
+            return response
+
         context.result = ResponseStream(
-            self._stream_injected_messages(context, call_next, session),
-            finalizer=lambda updates: ChatResponse.from_updates(updates, output_format_type=response_format),
+            self._stream_injected_messages(context, call_next, session, captured_conversation_id),
+            finalizer=_finalize_with_conversation_id,
         )
 
 
