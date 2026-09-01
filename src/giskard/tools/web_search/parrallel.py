@@ -58,6 +58,26 @@ def _normalize_json_text(text: str) -> str:
     return text
 
 
+def _extract_search_results(text: str, max_results: int) -> str:
+    """Extract ``results`` from a search payload and cap its length.
+
+    The Parallel MCP ``web_search`` tool returns a JSON payload whose
+    ``results`` list holds the ranked hits. Only the first ``max_results``
+    entries are kept; the list is re-serialized with ``ensure_ascii=False``.
+    Non-JSON or unexpected payloads pass through untouched.
+    """
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text
+    if not isinstance(data, dict):
+        return text
+    results = data.get("results")
+    if not isinstance(results, list):
+        return text
+    return json.dumps(results[:max_results], ensure_ascii=False, default=str)
+
+
 class ParallelSearchClient:
     """Wrapper around the Parallel Search MCP server.
 
@@ -170,12 +190,6 @@ class ParallelSearchClient:
     def _build_tools(self) -> list[FunctionTool]:
         """Create the two FunctionTools wrapping the MCP calls."""
 
-        import uuid
-
-        # Use instance-level stable session_id for free-tier rate limiting.
-        if not hasattr(self, "_default_session_id"):
-            self._default_session_id = uuid.uuid4().hex  # type: ignore[attr-defined]
-
         # ---- web_search -------------------------------------------------
         @tool(
             name="web_search",
@@ -184,19 +198,21 @@ class ParallelSearchClient:
         async def web_search(
             objective: str,
             search_queries: list[str],
+            max_results: int = 5,
         ) -> str:
             """Search the web.
 
             Args:
                 objective: Natural-language description of what the web search is trying to find.
                 search_queries: Concise keyword queries (3-6 words each, 1-3 items). At least one required.
+                max_results: Maximum number of results to return (default 5).
             """
-            return await self._call_remote(
+            text = await self._call_remote(
                 "web_search",
                 objective=objective,
                 search_queries=search_queries,
-                session_id=self._default_session_id,  # type: ignore[attr-defined]
             )
+            return _extract_search_results(text, max_results)
 
         # ---- web_fetch --------------------------------------------------
         @tool(
