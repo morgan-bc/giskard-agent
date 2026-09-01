@@ -35,30 +35,8 @@ PARALLEL_MCP_CONFIG: dict[str, Any] = {
     }
 }
 
-# Matches ``ensure_ascii=True`` style escapes (incl. surrogate pairs).
-_UNICODE_ESCAPE_RE = re.compile(r"\\u[0-9a-fA-F]{4}")
 
-
-def _normalize_json_text(text: str) -> str:
-    """Re-serialize JSON text with ``ensure_ascii=False``.
-
-    MCP upstreams may serialize payloads with ``ensure_ascii=True``, leaving
-    literal ``\\uXXXX`` sequences instead of readable non-ASCII characters.
-    Text containing such escapes is parsed and re-dumped; everything else
-    passes through untouched.
-    """
-    if not _UNICODE_ESCAPE_RE.search(text):
-        return text
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return text
-    if isinstance(data, (dict, list)):
-        return json.dumps(data, ensure_ascii=False, default=str)
-    return text
-
-
-def _extract_search_results(text: str, max_results: int) -> str:
+def _extract_search_results(data: str| dict, max_results: int) -> str:
     """Extract ``results`` from a search payload and cap its length.
 
     The Parallel MCP ``web_search`` tool returns a JSON payload whose
@@ -66,17 +44,11 @@ def _extract_search_results(text: str, max_results: int) -> str:
     entries are kept; the list is re-serialized with ``ensure_ascii=False``.
     Non-JSON or unexpected payloads pass through untouched.
     """
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return text
-    if not isinstance(data, dict):
-        return text
-    results = data.get("results")
-    if not isinstance(results, list):
-        return text
-    return json.dumps(results[:max_results], ensure_ascii=False, default=str)
-
+    if isinstance(data, dict):
+        results = data.get("results", [])
+        return results[:max_results]
+    else:
+        return data
 
 class ParallelSearchClient:
     """Wrapper around the Parallel Search MCP server.
@@ -161,31 +133,56 @@ class ParallelSearchClient:
     def is_connected(self) -> bool:
         return self._mcp.is_connected
 
-    # ------------------------------------------------------------------ MCP-backed impl
 
-    async def _call_remote(self, remote_name: str, **kwargs: Any) -> str:
+    async def _call_remote(self, remote_name: str, **kwargs: Any) -> dict | str:
         """Call a remote MCP tool and return text."""
         # Ensure connected — MCPTool.connect is idempotent.
         if not self._mcp.is_connected:
             await self._mcp.connect()
         result = await self._mcp.call_tool(remote_name, **kwargs)
-        # MCPTool.call_tool returns list[Content] or str
         if isinstance(result, str):
-            return _normalize_json_text(result)
-        # list[Content] -> concatenate text parts
-        texts: list[str] = []
-        for item in result:
-            if getattr(item, "text", None):
-                texts.append(item.text or "")
-            elif getattr(item, "type", None) == "text":
-                texts.append(str(getattr(item, "text", "")))
-            else:
-                texts.append(str(item))
-        return (
-            "\n".join(_normalize_json_text(t) for t in texts if t) if texts else str(result)
-        )
+            return json.loads(result)
+        elif len(result) > 0:
+            return json.loads(result[0].text)
+        else:
+            return str(result)
 
-    # ------------------------------------------------------------------ tool factories
+    async def search(
+        self,
+        objective: str,
+        search_queries: list[str],
+        max_results: int = 5,
+    ) -> str:
+        """Search the web.
+
+        Args:
+            objective: Natural-language description of what the web search is trying to find.
+            search_queries: Concise keyword queries (3-6 words each, 1-3 items). At least one required.
+            max_results: Maximum number of results to return (default 5).
+        """
+
+        text = await self._call_remote(
+            "web_search",
+            objective=objective,
+            search_queries=search_queries,
+        )
+        return _extract_search_results(text, max_results)
+
+    async def extract(
+        self,
+        urls: list[str],
+    ) -> str:
+        """Fetch URL(s).
+
+        Args:
+            urls: List of valid HTTP/HTTPS URLs to extract (max 20).
+        """
+
+        text = await self._call_remote(
+            "web_fetch",
+            urls=urls,
+        )
+        return text
 
     def _build_tools(self) -> list[FunctionTool]:
         """Create the two FunctionTools wrapping the MCP calls."""
@@ -207,13 +204,12 @@ class ParallelSearchClient:
                 search_queries: Concise keyword queries (3-6 words each, 1-3 items). At least one required.
                 max_results: Maximum number of results to return (default 5).
             """
-            text = await self._call_remote(
-                "web_search",
+            return await self.search(
                 objective=objective,
                 search_queries=search_queries,
+                max_results=max_results,
             )
-            return _extract_search_results(text, max_results)
-
+            
         # ---- web_fetch --------------------------------------------------
         @tool(
             name="web_fetch",
@@ -227,11 +223,7 @@ class ParallelSearchClient:
             Args:
                 urls: List of valid HTTP/HTTPS URLs to extract (max 20).
             """
-            return await self._call_remote(
-                "web_fetch",
-                urls=urls,
-                session_id=self._default_session_id,  # type: ignore[attr-defined]
-            )
+            return await self.extract(urls=urls)
 
         return [web_search, web_fetch]
 
