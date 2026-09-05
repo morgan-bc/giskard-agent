@@ -26,6 +26,7 @@ from giskard import Agent, create_harness_agent
 from giskard.core.types import AgentResponse
 from giskard.providers import OpenAIChatCompletionClient
 from giskard.tools.web_search import ParallelSearchClient
+from giskard.tools.python import LocalPythonExecutor
 
 GAIA_TASK_TEMPLATE = """\
 You are a helpful AI assistant that uses tools to complete tasks.
@@ -44,8 +45,8 @@ repeating the same call.
 and what you found.
 
 ## Answer format
-Report your thoughts, and finish your answer with the following template: FINAL ANSWER: [YOUR FINAL ANSWER].
-YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use units unless specified, don't use commas to separate digits, use digits. If asked for a string, don't use articles, don't use abbreviations (e.g. for cities), and write the numbers in digits. If asked for a comma separated list, apply the above rules depending on each element.
+- Report your thoughts, and finish your answer with the following template: FINAL ANSWER: [YOUR FINAL ANSWER].
+- YOUR FINAL ANSWER should be a number OR as few words as possible OR a comma separated list of numbers and/or strings. If you are asked for a number, don't use units unless specified, don't use commas to separate digits, use digits. If asked for a string, don't use articles, don't use abbreviations (e.g. for cities), and write the numbers in digits. If asked for a comma separated list, apply the above rules depending on each element.
 
 """
 
@@ -94,6 +95,8 @@ async def run_task(
     error: str | None = None
     final_response: AgentResponse | None = None
 
+    agent.client.function_invocation_configuration["max_iterations"] = max_turns
+
     async def consume() -> AgentResponse:
         stream = agent.run(question, stream=True, session=session)
         return await stream.get_final_response()
@@ -109,10 +112,8 @@ async def run_task(
     prediction = extract_final_answer(full_text) or ""
     if prediction == "" and error is None:
         error = "missing_final_answer"
+        print(f"Answer not found in response: {full_text}")
 
-    # History providers namespace their state by source_id: the default
-    # InMemoryHistoryProvider ("in_memory") stores Message objects under
-    # state["in_memory"]["messages"] (see agents.py setdefault(source_id)).
     in_memory = session.state.get("in_memory", {})
     messages = [msg.to_dict() for msg in in_memory.get("messages", [])]
     last_invocation = session.last_invocation or {}
@@ -124,8 +125,6 @@ async def run_task(
     # get_final_response() consumes the whole stream, so the turn cap is a
     # post-hoc label rather than a mid-run abort.
     turns = sum(1 for m in messages if m.get("role") == "assistant")
-    if turns > max_turns and not error:
-        error = "max_turns"
 
     return {
         "prediction": prediction,
@@ -157,10 +156,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--task-ids", type=str, default=None, help="Comma-separated task_ids to run"
     )
     parser.add_argument(
-        "--timeout", type=float, default=1800.0, help="Per-task wall-clock timeout in seconds"
+        "--timeout", type=float, default=180, help="Per-task wall-clock timeout in seconds"
     )
     parser.add_argument(
-        "--max-turns", type=int, default=60, help="Per-task max assistant turns"
+        "--max-turns", type=int, default=20, help="Per-task max assistant turns"
     )
     parser.add_argument(
         "--force", action="store_true", help="Re-run tasks already present in results.jsonl"
@@ -217,6 +216,8 @@ async def run(args: argparse.Namespace) -> None:
         model=os.getenv("BASE_MODEL"),
     )
     parallel = ParallelSearchClient()
+    python_executor = LocalPythonExecutor(workdir=workdir)
+    tools = python_executor.get_tools()
     agent = create_harness_agent(
         name="gaia_agent",
         client=client,
@@ -225,6 +226,10 @@ async def run(args: argparse.Namespace) -> None:
         tool_approval_rule="yolo",
         web_search_client=parallel,
         disable_file_memory=True,
+        disable_todo=True,
+        disable_file_access=True,
+        disable_mode=True,
+        tools=tools,
     )
 
     try:
@@ -242,6 +247,7 @@ async def run(args: argparse.Namespace) -> None:
                 "model": model,
             }
             try:
+                print(f"[{index}/{total}] {task['task_id']} level={task['Level']}")
                 result = await run_task(
                     agent, task["Question"], timeout_s=args.timeout, max_turns=args.max_turns
                 )
